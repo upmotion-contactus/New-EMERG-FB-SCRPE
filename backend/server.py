@@ -40,7 +40,7 @@ api_router = APIRouter(prefix="/api")
 MOLTBOT_PORT = 18789
 MOLTBOT_CONTROL_PORT = 18791
 CONFIG_DIR = os.path.expanduser("~/.clawdbot")
-CONFIG_FILE = os.path.join(CONFIG_DIR, "moltbot.json")
+CONFIG_FILE = os.path.join(CONFIG_DIR, "clawdbot.json")
 WORKSPACE_DIR = os.path.expanduser("~/clawd")
 
 # Global state for gateway process (per-user)
