@@ -303,8 +303,8 @@ def main():
     
     # Get test tokens from environment or use hardcoded test tokens
     import os
-    owner_token = os.environ.get('TEST_OWNER_TOKEN', 'test_session_owner_1769688022588')
-    other_token = os.environ.get('TEST_OTHER_TOKEN', 'test_session_other_1769688022588')
+    owner_token = os.environ.get('TEST_OWNER_TOKEN', 'test_session_owner_1769688072511')
+    other_token = os.environ.get('TEST_OTHER_TOKEN', 'test_session_other_1769688072511')
     
     print(f"\nUsing owner token: {owner_token[:20]}...")
     print(f"Using other token: {other_token[:20]}...")
