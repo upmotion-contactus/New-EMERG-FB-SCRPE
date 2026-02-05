@@ -349,6 +349,12 @@ async def scrape_facebook_group(
             
             page = await context.new_page()
             
+            # SPEED OPTIMIZATION: Block unnecessary resources
+            await page.route("**/*", lambda route: route.abort() 
+                if route.request.resource_type in ["image", "media", "font", "stylesheet"]
+                else route.continue_()
+            )
+            
             for url_idx, url in enumerate(urls):
                 status_callback({
                     'status': 'running',
