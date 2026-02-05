@@ -71,6 +71,60 @@ def find_chromium_executable() -> Optional[str]:
     return None
 
 
+async def check_browser_availability() -> Dict[str, Any]:
+    """Check if Playwright browser is available and can be launched"""
+    from playwright.async_api import async_playwright
+    
+    chromium_path = find_chromium_executable()
+    
+    try:
+        async with async_playwright() as p:
+            launch_options = {
+                'headless': True,
+                'args': ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu']
+            }
+            
+            if chromium_path:
+                launch_options['executable_path'] = chromium_path
+            
+            browser = await p.chromium.launch(**launch_options)
+            version = browser.version
+            await browser.close()
+            
+            return {
+                'available': True,
+                'version': version,
+                'path': chromium_path or 'Playwright default'
+            }
+    except Exception as e:
+        error_msg = str(e)
+        
+        # Try without custom path if it failed
+        if chromium_path:
+            try:
+                async with async_playwright() as p:
+                    browser = await p.chromium.launch(
+                        headless=True,
+                        args=['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu']
+                    )
+                    version = browser.version
+                    await browser.close()
+                    return {
+                        'available': True,
+                        'version': version,
+                        'path': 'Playwright default (fallback)'
+                    }
+            except Exception as e2:
+                error_msg = str(e2)
+        
+        return {
+            'available': False,
+            'error': error_msg,
+            'path': chromium_path,
+            'hint': 'Playwright browsers may not be installed. Run: playwright install chromium'
+        }
+
+
 def generate_slug_suffix() -> str:
     """Generate high-entropy random suffix (>=32 bits) for slugs"""
     return secrets.token_hex(8)  # 64 bits of entropy
