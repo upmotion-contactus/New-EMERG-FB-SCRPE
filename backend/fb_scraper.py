@@ -410,7 +410,8 @@ async def scrape_facebook_group(
                     })
                     
                     member_links = await stage1_collect_links(
-                        page, industry, status_callback, job_id
+                        page, industry, status_callback, job_id, 
+                        collect_all=False, start_time=start_time
                     )
                     
                     total_scanned += len(member_links.get('all_scanned', []))
