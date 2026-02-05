@@ -266,11 +266,16 @@ async def scrape_facebook_group(
     status_callback: Callable[[Dict], None],
     job_id: str
 ) -> Dict[str, Any]:
-    """Main scraping function for Facebook groups"""
+    """Main scraping function for Facebook groups - OPTIMIZED FOR LONG SCRAPES"""
     
     results = []
     all_matches = []
     total_scanned = 0
+    
+    # Long scrape settings
+    MAX_SCRAPE_TIME = int(os.environ.get('MAX_SCRAPE_TIME', '3600'))  # 1 hour default
+    HEARTBEAT_INTERVAL = 30  # Send status every 30 seconds
+    start_time = datetime.now(timezone.utc)
     
     # Ensure scrape directory exists
     os.makedirs(SCRAPE_DIR, exist_ok=True)
