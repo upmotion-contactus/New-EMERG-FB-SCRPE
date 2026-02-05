@@ -1,8 +1,8 @@
 # MoltBot Setup - Clawdbot Handoff Documentation
 
 ## Quick Links
-- **MoltBot Setup**: https://silly-lovelace-1.preview.emergentagent.com/
-- **Login**: https://silly-lovelace-1.preview.emergentagent.com/login
+- **MoltBot Setup**: https://pre-deploy-view-1.preview.emergentagent.com/
+- **Login**: https://pre-deploy-view-1.preview.emergentagent.com/login
 
 ## Overview
 MoltBot (OpenClaw) is an AI assistant gateway that provides access to multiple LLM providers through a unified interface.
