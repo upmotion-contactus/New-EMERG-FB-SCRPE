@@ -205,14 +205,24 @@ async def scrape_facebook_group(
     # Set browser path for Playwright
     os.environ['PLAYWRIGHT_BROWSERS_PATH'] = '/pw-browsers'
     
+    # Find Chromium executable dynamically
+    chromium_path = find_chromium_executable()
+    
     async with async_playwright() as p:
         try:
-            # Launch browser with explicit executable path
-            browser = await p.chromium.launch(
-                headless=True,
-                executable_path='/pw-browsers/chromium-1208/chrome-linux/chrome',
-                args=['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu', '--disable-dev-shm-usage']
-            )
+            # Launch browser - use dynamic path or let Playwright find it
+            launch_options = {
+                'headless': True,
+                'args': ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu', '--disable-dev-shm-usage']
+            }
+            
+            if chromium_path:
+                launch_options['executable_path'] = chromium_path
+                logger.info(f"Launching Chromium from: {chromium_path}")
+            else:
+                logger.info("Launching Chromium using Playwright's default path")
+            
+            browser = await p.chromium.launch(**launch_options)
             
             context = await browser.new_context(
                 viewport={'width': 1920, 'height': 1080},
