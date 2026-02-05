@@ -49,34 +49,52 @@ api_router = APIRouter(prefix="/api")
 
 
 def ensure_playwright_browsers():
-    """Ensure Playwright browsers are installed on startup"""
+    """Ensure Playwright browsers are installed on startup - ROBUST VERSION"""
     try:
         import subprocess
         import sys
+        import shutil
         
-        # Use the same Python interpreter that's running this script
         python_path = sys.executable
         
-        # Try to install chromium browser if not available
-        # This runs silently and only installs if needed
+        # First check if playwright command exists
+        playwright_path = shutil.which('playwright') or f"{os.path.dirname(python_path)}/playwright"
+        
+        # Method 1: Try using playwright module
         result = subprocess.run(
-            [python_path, '-m', 'playwright', 'install', 'chromium'],
+            [python_path, '-m', 'playwright', 'install', 'chromium', '--with-deps'],
             capture_output=True,
             text=True,
-            timeout=300  # 5 minute timeout for browser installation
+            timeout=600,
+            env={**os.environ, 'PLAYWRIGHT_BROWSERS_PATH': '/tmp/pw-browsers'}
         )
         
         if result.returncode == 0:
-            logging.info("Playwright browsers check/install completed successfully")
-            if result.stdout:
-                logging.info(f"Playwright output: {result.stdout[:500]}")
-        else:
-            logging.warning(f"Playwright browser install returned non-zero: {result.stderr}")
+            logging.info("✅ Playwright Chromium installed successfully")
+            os.environ['PLAYWRIGHT_BROWSERS_PATH'] = '/tmp/pw-browsers'
+            return True
+        
+        # Method 2: Try direct playwright command
+        result2 = subprocess.run(
+            ['playwright', 'install', 'chromium'],
+            capture_output=True,
+            text=True,
+            timeout=600
+        )
+        
+        if result2.returncode == 0:
+            logging.info("✅ Playwright Chromium installed via CLI")
+            return True
             
+        logging.warning(f"Playwright install output: {result.stderr[:500] if result.stderr else 'none'}")
+        return False
+        
     except subprocess.TimeoutExpired:
-        logging.error("Playwright browser installation timed out")
+        logging.error("Playwright browser installation timed out (10 min)")
+        return False
     except Exception as e:
         logging.warning(f"Could not ensure Playwright browsers: {e}")
+        return False
 
 
 # Run browser check on module load (runs once at startup)
