@@ -24,7 +24,7 @@ from datetime import datetime, timezone, timedelta
 from industry_config import get_all_industries, detect_industry, matches_industry
 from fb_scraper import (
     scrape_facebook_group, load_cookies, save_cookies, 
-    delete_cookies, cookies_exist, SCRAPE_DIR
+    delete_cookies, cookies_exist, SCRAPE_DIR, check_browser_availability
 )
 
 # WhatsApp monitoring
