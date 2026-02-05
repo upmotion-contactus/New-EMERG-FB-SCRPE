@@ -578,6 +578,7 @@ export default function ScraperDashboard() {
                       {jobHistory.slice(0, 8).map((job) => {
                         const config = INDUSTRY_CONFIG[job.industry] || { icon: Wrench, color: 'bg-slate-500', label: job.industry };
                         const Icon = config.icon;
+                        const csvFile = job.results?.[0]?.file;
                         
                         return (
                           <div
@@ -595,6 +596,15 @@ export default function ScraperDashboard() {
                                 {job.total_matches || 0} leads • {new Date(job.started_at).toLocaleDateString()}
                               </p>
                             </div>
+                            {job.status === 'completed' && csvFile && (
+                              <button
+                                onClick={() => window.open(`${API}/scrapes/download/${csvFile}`, '_blank')}
+                                className="p-1.5 rounded bg-emerald-900/50 hover:bg-emerald-800/50 text-emerald-400 transition-colors"
+                                title="Download CSV"
+                              >
+                                <Download className="w-3 h-3" />
+                              </button>
+                            )}
                             <span className={`text-xs px-1.5 py-0.5 rounded ${
                               job.status === 'completed' ? 'bg-emerald-900/50 text-emerald-400' :
                               job.status === 'error' ? 'bg-red-900/50 text-red-400' :
