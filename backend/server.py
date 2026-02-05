@@ -1367,6 +1367,16 @@ async def start_scraper(request: ScraperStartRequest, background_tasks: Backgrou
     if not cookies_exist():
         raise HTTPException(status_code=400, detail="Facebook cookies not configured")
     
+    # Check browser availability before starting
+    browser_check = await check_browser_availability()
+    if not browser_check.get('available'):
+        error_msg = browser_check.get('error', 'Unknown error')
+        hint = browser_check.get('hint', '')
+        raise HTTPException(
+            status_code=503, 
+            detail=f"Browser not available: {error_msg}. {hint}"
+        )
+    
     # Create job
     job_id = str(uuid.uuid4())
     job_data = {
@@ -1377,7 +1387,8 @@ async def start_scraper(request: ScraperStartRequest, background_tasks: Backgrou
         'message': 'Initializing scraper...',
         'members_scanned': 0,
         'matches_found': 0,
-        'started_at': datetime.now(timezone.utc).isoformat()
+        'started_at': datetime.now(timezone.utc).isoformat(),
+        'browser_version': browser_check.get('version', 'unknown')
     }
     
     scraper_jobs[job_id] = job_data
