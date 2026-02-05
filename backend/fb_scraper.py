@@ -728,7 +728,7 @@ async def stage2_deep_scrape(
         # Check timeout every 50 profiles
         if idx % 50 == 0:
             elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
-            if elapsed > 7200:  # 2 hour max total
+            if elapsed > 14400:  # 4 hours max total
                 logger.info(f"Stage 2 timeout after {elapsed:.0f}s, {idx}/{total} profiles done")
                 break
         
