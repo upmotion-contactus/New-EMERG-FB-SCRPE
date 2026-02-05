@@ -47,6 +47,39 @@ app = FastAPI()
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
+
+def ensure_playwright_browsers():
+    """Ensure Playwright browsers are installed on startup"""
+    try:
+        # Check if we can import and use playwright
+        import subprocess
+        
+        # Try to install chromium browser if not available
+        # This runs silently and only installs if needed
+        result = subprocess.run(
+            ['python', '-m', 'playwright', 'install', 'chromium'],
+            capture_output=True,
+            text=True,
+            timeout=300  # 5 minute timeout for browser installation
+        )
+        
+        if result.returncode == 0:
+            logging.info("Playwright browsers check/install completed successfully")
+        else:
+            logging.warning(f"Playwright browser install returned non-zero: {result.stderr}")
+            
+    except subprocess.TimeoutExpired:
+        logging.error("Playwright browser installation timed out")
+    except Exception as e:
+        logging.warning(f"Could not ensure Playwright browsers: {e}")
+
+
+# Run browser check on module load (runs once at startup)
+# Only run in production-like environments (not during import for testing)
+if os.environ.get('ENSURE_PLAYWRIGHT_BROWSERS', 'true').lower() == 'true':
+    ensure_playwright_browsers()
+
+
 # Moltbot Gateway Management
 MOLTBOT_PORT = 18789
 MOLTBOT_CONTROL_PORT = 18791
