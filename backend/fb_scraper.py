@@ -600,14 +600,14 @@ async def stage1_collect_links(
         })
         
         # OPTIMIZED: Faster scrolling with larger jumps and reduced delay
-        await page.evaluate('window.scrollBy(0, 1500)')  # Increased from 800
-        await asyncio.sleep(SCROLL_DELAY)  # Configurable, default 0.3s (was 0.8s)
+        await page.evaluate('window.scrollBy(0, 1500)')
+        await asyncio.sleep(SCROLL_DELAY)
         scroll_count += 1
         
-        # Every 10 scrolls, do a bigger jump to load more content faster
-        if scroll_count % 10 == 0:
-            await page.evaluate('window.scrollBy(0, 3000)')
-            await asyncio.sleep(0.5)
+        # Every 5 scrolls, do a bigger jump to load more content faster
+        if scroll_count % 5 == 0:
+            await page.evaluate('window.scrollTo(0, document.body.scrollHeight)')
+            await asyncio.sleep(0.3)
     
     logger.info(f"Stage 1 complete: {len(all_scanned)} scanned, {len(matches)} matches")
     
@@ -617,13 +617,79 @@ async def stage1_collect_links(
     }
 
 
+async def scrape_single_profile(page: Page, match: Dict) -> Dict:
+    """Scrape a single profile - helper for concurrent scraping"""
+    original_url = match['url']
+    name = match.get('text', '').split('\n')[0].strip()[:100]
+    
+    phone = ''
+    website = ''
+    about = ''
+    profile_url = original_url
+    
+    try:
+        user_id_match = re.search(r'/user/(\d+)', original_url)
+        if user_id_match:
+            user_id = user_id_match.group(1)
+            profile_url = f"https://www.facebook.com/profile.php?id={user_id}"
+        
+        await page.goto(profile_url, wait_until='domcontentloaded', timeout=PAGE_LOAD_TIMEOUT)
+        await asyncio.sleep(0.5)
+        
+        extracted = await page.evaluate('''
+            () => {
+                const text = document.body.innerText || '';
+                let phone = '', website = '', followers = '', bio = '';
+                
+                const phoneMatch = text.match(/\\b(\\d{3}[-.]\\d{3}[-.]\\d{4})\\b/) ||
+                                  text.match(/\\((\\d{3})\\)\\s*(\\d{3})[-.]?(\\d{4})/);
+                if (phoneMatch) phone = phoneMatch[0];
+                
+                document.querySelectorAll('a[href*="l.facebook.com/l.php"]').forEach(a => {
+                    if (website) return;
+                    try {
+                        const decoded = decodeURIComponent(new URL(a.href).searchParams.get('u') || '');
+                        if (decoded && !decoded.match(/facebook|instagram|twitter|youtube|tiktok|linkedin/i)) {
+                            website = decoded.split('?')[0];
+                        }
+                    } catch(e) {}
+                });
+                
+                const fm = text.match(/([\\d,\\.]+[KkMm]?)\\s*followers/i);
+                if (fm) followers = fm[1] + ' followers';
+                
+                const bm = text.match(/Intro\\n([^\\n]+)/i) || text.match(/About\\n([^\\n]+)/i);
+                if (bm) bio = bm[1].trim().substring(0, 100);
+                
+                return { phone, website, followers, bio };
+            }
+        ''')
+        
+        phone = extracted.get('phone', '')
+        website = extracted.get('website', '')
+        about = f"{extracted.get('followers', '')} {extracted.get('bio', '')}".strip()
+        
+    except Exception as e:
+        logger.debug(f"Error scraping {name}: {str(e)[:50]}")
+    
+    return {
+        'name': name,
+        'url': profile_url,
+        'phone': phone,
+        'website': website,
+        'has_website': 'Yes' if website else 'No',
+        'about': about,
+        'work': ''
+    }
+
+
 async def stage2_deep_scrape(
     page: Page,
     matches: List[Dict],
     status_callback: Callable,
     job_id: str
 ) -> List[Dict]:
-    """Stage 2: Visit each PROFILE page and extract contact info - OPTIMIZED with batching"""
+    """Stage 2: Visit each PROFILE page and extract contact info - OPTIMIZED"""
     
     results = []
     total = len(matches)
