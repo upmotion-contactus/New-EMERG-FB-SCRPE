@@ -532,7 +532,7 @@ async def stage1_collect_links(
         # Check timeout every 100 scrolls
         if scroll_count % 100 == 0:
             elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
-            if elapsed > 3600:  # 1 hour max for stage 1
+            if elapsed > 10800:  # 3 hours max for stage 1
                 logger.info(f"Stage 1 timeout after {elapsed:.0f}s, {len(all_scanned)} scanned")
                 break
         
