@@ -22,28 +22,51 @@ BROWSER_PATH = "/pw-browsers"
 
 
 def find_chromium_executable() -> Optional[str]:
-    """Dynamically find the Chromium browser executable path"""
-    browser_base = os.environ.get('PLAYWRIGHT_BROWSERS_PATH', '/pw-browsers')
+    """Dynamically find the Chromium browser executable path for different environments"""
     
-    # Pattern to find chromium directories
-    chromium_patterns = [
-        f"{browser_base}/chromium-*/chrome-linux/chrome",
-        f"{browser_base}/chromium_headless_shell-*/headless_shell",
-        f"{browser_base}/chromium/chrome-linux/chrome",
+    # Check for environment variable override first
+    if os.environ.get('CHROMIUM_PATH'):
+        custom_path = os.environ.get('CHROMIUM_PATH')
+        if os.path.isfile(custom_path) and os.access(custom_path, os.X_OK):
+            logger.info(f"Using CHROMIUM_PATH from env: {custom_path}")
+            return custom_path
+    
+    # Get browser base path from env or use common locations
+    browser_bases = [
+        os.environ.get('PLAYWRIGHT_BROWSERS_PATH', ''),
+        '/pw-browsers',
+        '/ms-playwright',
+        os.path.expanduser('~/.cache/ms-playwright'),
+        '/root/.cache/ms-playwright',
     ]
     
-    for pattern in chromium_patterns:
-        matches = glob.glob(pattern)
-        if matches:
-            # Sort to get the latest version and return the first match
-            matches.sort(reverse=True)
-            executable = matches[0]
-            if os.path.isfile(executable) and os.access(executable, os.X_OK):
-                logger.info(f"Found Chromium at: {executable}")
-                return executable
+    # Filter out empty paths
+    browser_bases = [b for b in browser_bases if b]
     
-    # Fallback: let Playwright find it automatically
-    logger.warning("No Chromium executable found, letting Playwright handle it")
+    for browser_base in browser_bases:
+        if not os.path.isdir(browser_base):
+            continue
+            
+        # Pattern to find chromium directories
+        chromium_patterns = [
+            f"{browser_base}/chromium-*/chrome-linux/chrome",
+            f"{browser_base}/chromium_headless_shell-*/headless_shell",
+            f"{browser_base}/chromium/chrome-linux/chrome",
+            f"{browser_base}/chromium-*/chrome",
+        ]
+        
+        for pattern in chromium_patterns:
+            matches = glob.glob(pattern)
+            if matches:
+                # Sort to get the latest version and return the first match
+                matches.sort(reverse=True)
+                executable = matches[0]
+                if os.path.isfile(executable) and os.access(executable, os.X_OK):
+                    logger.info(f"Found Chromium at: {executable}")
+                    return executable
+    
+    # Fallback: let Playwright find it automatically (this is preferred for production)
+    logger.info("No custom Chromium path found, will use Playwright's default browser discovery")
     return None
 
 
