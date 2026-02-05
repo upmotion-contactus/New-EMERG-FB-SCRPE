@@ -432,7 +432,7 @@ async def scrape_facebook_group(
                         profiles_to_scrape = member_links['matches']
                         
                         scraped_data = await stage2_deep_scrape(
-                            page, profiles_to_scrape, status_callback, job_id
+                            page, profiles_to_scrape, status_callback, job_id, start_time
                         )
                         
                         all_matches.extend(scraped_data)
