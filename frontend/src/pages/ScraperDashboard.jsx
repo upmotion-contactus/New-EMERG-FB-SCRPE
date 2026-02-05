@@ -68,7 +68,7 @@ export default function ScraperDashboard() {
         setTotalStats({
           leads: totalLeads,
           withPhone: Math.round(totalLeads * 0.15), // Estimate ~15% have phone
-          withWebsite: Math.round(totalLeads * 0.25), // Estimate ~25% have website
+          noWebsiteWithPhone: Math.round(totalLeads * 0.12), // Estimate ~12% have phone but no website
         });
       })
       .catch(console.error);
