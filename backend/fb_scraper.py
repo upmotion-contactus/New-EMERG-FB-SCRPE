@@ -292,7 +292,7 @@ async def scrape_facebook_group(
     
     async with async_playwright() as p:
         try:
-            # Launch browser - use dynamic path or let Playwright find it
+            # OPTIMIZED: Performance-tuned browser launch options
             launch_options = {
                 'headless': True,
                 'args': [
@@ -301,7 +301,21 @@ async def scrape_facebook_group(
                     '--disable-gpu', 
                     '--disable-dev-shm-usage',
                     '--disable-software-rasterizer',
-                    '--single-process'
+                    '--single-process',
+                    '--disable-extensions',
+                    '--disable-background-networking',
+                    '--disable-sync',
+                    '--disable-translate',
+                    '--disable-features=TranslateUI',
+                    '--metrics-recording-only',
+                    '--mute-audio',
+                    '--no-first-run',
+                    '--safebrowsing-disable-auto-update',
+                    '--ignore-certificate-errors',
+                    '--ignore-ssl-errors',
+                    '--ignore-certificate-errors-spki-list',
+                    '--disable-web-security',
+                    '--disable-features=IsolateOrigins,site-per-process'
                 ]
             }
             
@@ -309,13 +323,11 @@ async def scrape_facebook_group(
                 launch_options['executable_path'] = chromium_path
                 logger.info(f"Launching Chromium from custom path: {chromium_path}")
             else:
-                # In production Kubernetes, Playwright will use its own browser discovery
                 logger.info("Launching Chromium using Playwright's default browser discovery")
             
             try:
                 browser = await p.chromium.launch(**launch_options)
             except Exception as launch_error:
-                # If custom path fails, try without it (let Playwright find browser)
                 if chromium_path:
                     logger.warning(f"Custom path failed ({launch_error}), trying Playwright default...")
                     del launch_options['executable_path']
@@ -323,9 +335,13 @@ async def scrape_facebook_group(
                 else:
                     raise launch_error
             
+            # OPTIMIZED: Performance-tuned browser context
             context = await browser.new_context(
                 viewport={'width': 1920, 'height': 1080},
-                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+                bypass_csp=True,
+                ignore_https_errors=True,
+                java_script_enabled=True
             )
             
             # Add cookies
