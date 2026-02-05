@@ -22,8 +22,9 @@ function AppRouter() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/" element={<SetupPage />} />
+      <Route path="/setup" element={<SetupPage />} />
       <Route path="/scrapes" element={<ScrapeDashboard />} />
+      <Route path="/" element={<ScraperDashboard />} />
       <Route path="/scraper" element={<ScraperDashboard />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
