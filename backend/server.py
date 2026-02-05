@@ -1120,7 +1120,7 @@ async def websocket_proxy(websocket: WebSocket):
 
 # ============== Scrape File Management ==============
 
-SCRAPE_FILES_DIR = "/app/scrape_files"
+SCRAPE_FILES_DIR = os.environ.get('SCRAPE_DIR', '/app/scrape_files')
 
 def get_file_tags(filename: str) -> List[str]:
     """Generate tags based on filename keywords"""
