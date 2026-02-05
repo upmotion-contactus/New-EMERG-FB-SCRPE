@@ -694,121 +694,22 @@ async def stage2_deep_scrape(
     results = []
     total = len(matches)
     
-    # Process in batches for better performance
-    for batch_start in range(0, total, BATCH_SIZE):
-        batch_end = min(batch_start + BATCH_SIZE, total)
-        batch = matches[batch_start:batch_end]
-        
-        status_callback({
-            'status': 'running',
-            'message': f'Deep scraping batch {batch_start//BATCH_SIZE + 1}: profiles {batch_start+1}-{batch_end}/{total}',
-            'job_id': job_id,
-            'deep_scrape_progress': f'{batch_end}/{total}',
-            'stage': 'deep_scraping'
-        })
-        
-        for idx, match in enumerate(batch):
-            original_url = match['url']
-            name = match.get('text', '').split('\n')[0].strip()[:100]
-            
-            phone = ''
-            website = ''
-            about = ''
-            work = ''
-            profile_url = original_url
-            
-            try:
-                # Convert group user URL to direct profile URL
-                user_id_match = re.search(r'/user/(\d+)', original_url)
-                if user_id_match:
-                    user_id = user_id_match.group(1)
-                    profile_url = f"https://www.facebook.com/profile.php?id={user_id}"
-                
-                # OPTIMIZED: Faster navigation with shorter timeout
-                await page.goto(profile_url, wait_until='domcontentloaded', timeout=PAGE_LOAD_TIMEOUT)
-                await asyncio.sleep(0.8)  # Reduced from 2 seconds
-                
-                # OPTIMIZED: Single evaluate call to extract all data at once
-                extracted = await page.evaluate('''
-                    () => {
-                        const text = document.body.innerText || '';
-                        let phone = '';
-                        let website = '';
-                        let followers = '';
-                        let bio = '';
-                        
-                        // Extract phone - multiple patterns
-                        const phonePatterns = [
-                            /\\b(\\d{3}[-.]\\d{3}[-.]\\d{4})\\b/,
-                            /\\((\\d{3})\\)\\s*(\\d{3})[-.]?(\\d{4})/,
-                            /\\+1[-.]?(\\d{3})[-.]?(\\d{3})[-.]?(\\d{4})/,
-                        ];
-                        
-                        for (const pattern of phonePatterns) {
-                            const match = text.match(pattern);
-                            if (match) {
-                                phone = match[0];
-                                break;
-                            }
-                        }
-                        
-                        // Extract external links
-                        const externalLinks = [];
-                        document.querySelectorAll('a[href*="l.facebook.com/l.php"]').forEach(a => {
-                            try {
-                                const url = new URL(a.href);
-                                const decoded = decodeURIComponent(url.searchParams.get('u') || '');
-                                if (decoded) externalLinks.push(decoded);
-                            } catch(e) {}
-                        });
-                        
-                        for (const link of externalLinks) {
-                            if (!link.toLowerCase().match(/facebook|instagram|twitter|youtube|tiktok|linkedin/)) {
-                                website = link.split('?')[0];
-                                break;
-                            }
-                        }
-                        
-                        // Extract followers
-                        const followerMatch = text.match(/([\\d,\\.]+[KkMm]?)\\s*followers/i);
-                        if (followerMatch) followers = followerMatch[1] + ' followers';
-                        
-                        // Extract bio
-                        const bioMatch = text.match(/Intro\\n([^\\n]+)/i) || 
-                                        text.match(/About\\n([^\\n]+)/i);
-                        if (bioMatch) bio = bioMatch[1].trim().substring(0, 150);
-                        
-                        return { phone, website, followers, bio };
-                    }
-                ''')
-                
-                phone = extracted.get('phone', '')
-                website = extracted.get('website', '')
-                followers = extracted.get('followers', '')
-                bio = extracted.get('bio', '')
-                
-                if followers and bio:
-                    about = f"{followers} | {bio}"
-                elif followers:
-                    about = followers
-                elif bio:
-                    about = bio
-                    
-            except Exception as e:
-                logger.warning(f"Error scraping {name}: {str(e)[:100]}")
-            
-            results.append({
-                'name': name,
-                'url': profile_url,
-                'phone': phone,
-                'website': website,
-                'has_website': 'Yes' if website else 'No',
-                'about': about,
-                'work': work
+    # Process profiles sequentially but with optimized timing
+    for idx, match in enumerate(matches):
+        if idx % 5 == 0:
+            status_callback({
+                'status': 'running',
+                'message': f'Deep scraping: {idx+1}/{total} profiles',
+                'job_id': job_id,
+                'deep_scrape_progress': f'{idx+1}/{total}',
+                'stage': 'deep_scraping'
             })
-            
-            # OPTIMIZED: Shorter delay between requests
-            await asyncio.sleep(0.5)  # Reduced from 1.5 seconds
+        
+        result = await scrape_single_profile(page, match)
+        results.append(result)
+        
+        # Minimal delay
+        await asyncio.sleep(0.3)
     
     return results
 
