@@ -12,7 +12,7 @@ import {
   Play, Square, Settings, Cookie, Loader2, CheckCircle2, XCircle,
   Database, Users, Target, Clock, AlertCircle, Trash2, Zap, Phone,
   Globe, TrendingUp, Activity, Wrench, Flame, Lightbulb, Home, 
-  Trees, Droplets, PaintBucket, HardHat
+  Trees, Droplets, PaintBucket, HardHat, Download
 } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || '';
