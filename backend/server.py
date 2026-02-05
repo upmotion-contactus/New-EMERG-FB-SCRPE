@@ -1372,14 +1372,27 @@ async def delete_cookies_endpoint():
 
 
 async def run_scraper_job(job_id: str, urls: List[str], industry: str):
-    """Background task to run the scraper"""
+    """Background task to run the scraper - OPTIMIZED FOR LONG RUNNING JOBS"""
+    
+    job_start = datetime.now(timezone.utc)
+    last_heartbeat = job_start
     
     def status_callback(status: Dict):
         """Update job status in memory and database"""
+        nonlocal last_heartbeat
+        
+        # Add elapsed time to status
+        elapsed = (datetime.now(timezone.utc) - job_start).total_seconds()
+        status['elapsed_seconds'] = int(elapsed)
+        status['elapsed_time'] = f"{int(elapsed//60)}m {int(elapsed%60)}s"
+        
         if job_id in scraper_jobs:
             scraper_jobs[job_id].update(status)
-            # Also update in database
-            asyncio.create_task(update_job_in_db(job_id, status))
+            # Update DB less frequently to reduce load
+            now = datetime.now(timezone.utc)
+            if (now - last_heartbeat).total_seconds() > 10:  # Every 10 seconds
+                last_heartbeat = now
+                asyncio.create_task(update_job_in_db(job_id, status))
     
     try:
         result = await scrape_facebook_group(
@@ -1389,19 +1402,35 @@ async def run_scraper_job(job_id: str, urls: List[str], industry: str):
             job_id=job_id
         )
         
+        # Calculate final elapsed time
+        total_elapsed = (datetime.now(timezone.utc) - job_start).total_seconds()
+        
         # Update final status
         final_status = {
             'status': 'completed' if result.get('success') else 'error',
             'results': result.get('results', []),
             'total_matches': result.get('total_matches', 0),
             'total_scanned': result.get('total_scanned', 0),
-            'completed_at': datetime.now(timezone.utc).isoformat()
+            'completed_at': datetime.now(timezone.utc).isoformat(),
+            'elapsed_seconds': int(total_elapsed),
+            'elapsed_time': f"{int(total_elapsed//60)}m {int(total_elapsed%60)}s"
         }
         
         if job_id in scraper_jobs:
             scraper_jobs[job_id].update(final_status)
         
         await update_job_in_db(job_id, final_status)
+        
+    except asyncio.CancelledError:
+        logger.warning(f"Scraper job {job_id} was cancelled")
+        cancel_status = {
+            'status': 'cancelled',
+            'message': 'Job was cancelled',
+            'completed_at': datetime.now(timezone.utc).isoformat()
+        }
+        if job_id in scraper_jobs:
+            scraper_jobs[job_id].update(cancel_status)
+        await update_job_in_db(job_id, cancel_status)
         
     except Exception as e:
         logger.error(f"Scraper job {job_id} failed: {e}")
