@@ -1280,6 +1280,20 @@ async def get_cookies_status():
     return {'configured': cookies_exist()}
 
 
+@api_router.get("/scraper/browser/status")
+async def get_browser_status():
+    """Check if Playwright browser is available for scraping"""
+    try:
+        result = await check_browser_availability()
+        return result
+    except Exception as e:
+        return {
+            'available': False,
+            'error': str(e),
+            'hint': 'Failed to check browser availability'
+        }
+
+
 @api_router.post("/scraper/cookies/save")
 async def save_cookies_endpoint(request: SaveCookiesRequest):
     """Save Facebook cookies"""
