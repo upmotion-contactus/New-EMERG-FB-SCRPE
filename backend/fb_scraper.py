@@ -495,19 +495,20 @@ async def stage1_collect_links(
     except:
         pass
     
-    while scroll_count < max_scrolls and no_new_count < 20:  # Increased patience for large groups
+    while scroll_count < max_scrolls and no_new_count < 15:  # Reduced patience - faster exit
         # Extract member data from listitem elements (Facebook's member card structure)
+        # OPTIMIZED: Single pass extraction with all data
         members_data = await page.evaluate('''
             () => {
                 const results = [];
+                const seen = new Set();
                 document.querySelectorAll('[role="listitem"]').forEach(item => {
-                    // Find profile link within the listitem
                     const profileLinks = item.querySelectorAll('a[href*="/user/"]');
                     if (profileLinks.length > 0) {
-                        const profileLink = profileLinks[0];
-                        const href = profileLink.href;
+                        const href = profileLinks[0].href;
+                        if (seen.has(href)) return;
+                        seen.add(href);
                         
-                        // Get the name (usually in the second link with text)
                         let name = '';
                         for (const link of profileLinks) {
                             if (link.innerText && link.innerText.trim().length > 0) {
@@ -516,14 +517,13 @@ async def stage1_collect_links(
                             }
                         }
                         
-                        // Get additional context from the listitem
                         const itemText = item.innerText || '';
                         
                         if (href && name) {
                             results.push({
                                 href: href,
                                 name: name,
-                                context: itemText.substring(0, 500)
+                                context: itemText.substring(0, 300)  // Reduced context size for speed
                             });
                         }
                     }
