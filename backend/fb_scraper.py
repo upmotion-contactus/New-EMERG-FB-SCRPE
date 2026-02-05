@@ -690,6 +690,8 @@ async def scrape_single_profile(page: Page, match: Dict) -> Dict:
         website = extracted.get('website', '')
         about = f"{extracted.get('followers', '')} {extracted.get('bio', '')}".strip()
         
+    except asyncio.TimeoutError:
+        logger.debug(f"Timeout scraping {name}")
     except Exception as e:
         logger.debug(f"Error scraping {name}: {str(e)[:50]}")
     
@@ -708,16 +710,29 @@ async def stage2_deep_scrape(
     page: Page,
     matches: List[Dict],
     status_callback: Callable,
-    job_id: str
+    job_id: str,
+    start_time: datetime = None
 ) -> List[Dict]:
-    """Stage 2: Visit each PROFILE page and extract contact info - OPTIMIZED"""
+    """Stage 2: Deep scrape profiles - OPTIMIZED FOR LONG SCRAPES"""
     
     results = []
     total = len(matches)
+    errors_in_row = 0
+    max_errors = 10  # Reset page if too many errors
     
-    # Process profiles sequentially but with optimized timing
+    if start_time is None:
+        start_time = datetime.now(timezone.utc)
+    
     for idx, match in enumerate(matches):
-        if idx % 5 == 0:
+        # Check timeout every 50 profiles
+        if idx % 50 == 0:
+            elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
+            if elapsed > 7200:  # 2 hour max total
+                logger.info(f"Stage 2 timeout after {elapsed:.0f}s, {idx}/{total} profiles done")
+                break
+        
+        # Status update every 10 profiles
+        if idx % 10 == 0:
             status_callback({
                 'status': 'running',
                 'message': f'Deep scraping: {idx+1}/{total} profiles',
@@ -726,8 +741,22 @@ async def stage2_deep_scrape(
                 'stage': 'deep_scraping'
             })
         
-        result = await scrape_single_profile(page, match)
-        results.append(result)
+        try:
+            result = await scrape_single_profile(page, match)
+            results.append(result)
+            errors_in_row = 0
+        except Exception as e:
+            errors_in_row += 1
+            logger.warning(f"Profile scrape error ({errors_in_row}): {str(e)[:50]}")
+            
+            # If too many errors, try refreshing the page
+            if errors_in_row >= max_errors:
+                try:
+                    await page.reload(wait_until='domcontentloaded', timeout=15000)
+                    errors_in_row = 0
+                    logger.info("Page refreshed after errors")
+                except:
+                    pass
         
         # Minimal delay
         await asyncio.sleep(0.3)
