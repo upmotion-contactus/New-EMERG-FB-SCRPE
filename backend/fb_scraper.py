@@ -5,6 +5,7 @@ import os
 import re
 import csv
 import secrets
+import glob
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Optional, List, Dict, Any
@@ -18,6 +19,32 @@ logger = logging.getLogger(__name__)
 COOKIES_FILE = "/app/backend/fb_cookies.json"
 SCRAPE_DIR = "/app/scrape_files"
 BROWSER_PATH = "/pw-browsers"
+
+
+def find_chromium_executable() -> Optional[str]:
+    """Dynamically find the Chromium browser executable path"""
+    browser_base = os.environ.get('PLAYWRIGHT_BROWSERS_PATH', '/pw-browsers')
+    
+    # Pattern to find chromium directories
+    chromium_patterns = [
+        f"{browser_base}/chromium-*/chrome-linux/chrome",
+        f"{browser_base}/chromium_headless_shell-*/headless_shell",
+        f"{browser_base}/chromium/chrome-linux/chrome",
+    ]
+    
+    for pattern in chromium_patterns:
+        matches = glob.glob(pattern)
+        if matches:
+            # Sort to get the latest version and return the first match
+            matches.sort(reverse=True)
+            executable = matches[0]
+            if os.path.isfile(executable) and os.access(executable, os.X_OK):
+                logger.info(f"Found Chromium at: {executable}")
+                return executable
+    
+    # Fallback: let Playwright find it automatically
+    logger.warning("No Chromium executable found, letting Playwright handle it")
+    return None
 
 
 def generate_slug_suffix() -> str:
