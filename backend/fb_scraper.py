@@ -577,10 +577,15 @@ async def stage1_collect_links(
             'stage': 'collecting'
         })
         
-        # Scroll down
-        await page.evaluate('window.scrollBy(0, 800)')
-        await asyncio.sleep(0.8)
+        # OPTIMIZED: Faster scrolling with larger jumps and reduced delay
+        await page.evaluate('window.scrollBy(0, 1500)')  # Increased from 800
+        await asyncio.sleep(SCROLL_DELAY)  # Configurable, default 0.3s (was 0.8s)
         scroll_count += 1
+        
+        # Every 10 scrolls, do a bigger jump to load more content faster
+        if scroll_count % 10 == 0:
+            await page.evaluate('window.scrollBy(0, 3000)')
+            await asyncio.sleep(0.5)
     
     logger.info(f"Stage 1 complete: {len(all_scanned)} scanned, {len(matches)} matches")
     
