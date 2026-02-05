@@ -16,9 +16,10 @@ from industry_config import matches_industry, detect_industry, is_qualified_pros
 
 logger = logging.getLogger(__name__)
 
-COOKIES_FILE = "/app/backend/fb_cookies.json"
-SCRAPE_DIR = "/app/scrape_files"
-BROWSER_PATH = "/pw-browsers"
+# Configurable paths - use environment variables for production flexibility
+COOKIES_FILE = os.environ.get('FB_COOKIES_FILE', '/app/backend/fb_cookies.json')
+SCRAPE_DIR = os.environ.get('SCRAPE_DIR', '/app/scrape_files')
+BROWSER_PATH = os.environ.get('PLAYWRIGHT_BROWSERS_PATH', '/pw-browsers')
 
 
 def find_chromium_executable() -> Optional[str]:
