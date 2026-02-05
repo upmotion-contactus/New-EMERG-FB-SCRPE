@@ -312,11 +312,11 @@ export default function ScraperDashboard() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-slate-400 uppercase tracking-wide">With Website</p>
-                  <p className="text-2xl font-bold text-purple-400 mt-1">{totalStats.withWebsite.toLocaleString()}</p>
+                  <p className="text-xs text-slate-400 uppercase tracking-wide">No Website + Phone</p>
+                  <p className="text-2xl font-bold text-purple-400 mt-1">{totalStats.noWebsiteWithPhone.toLocaleString()}</p>
                 </div>
                 <div className="p-3 bg-purple-600/20 rounded-lg">
-                  <Globe className="w-5 h-5 text-purple-400" />
+                  <Phone className="w-5 h-5 text-purple-400" />
                 </div>
               </div>
             </CardContent>
