@@ -51,13 +51,16 @@ api_router = APIRouter(prefix="/api")
 def ensure_playwright_browsers():
     """Ensure Playwright browsers are installed on startup"""
     try:
-        # Check if we can import and use playwright
         import subprocess
+        import sys
+        
+        # Use the same Python interpreter that's running this script
+        python_path = sys.executable
         
         # Try to install chromium browser if not available
         # This runs silently and only installs if needed
         result = subprocess.run(
-            ['python', '-m', 'playwright', 'install', 'chromium'],
+            [python_path, '-m', 'playwright', 'install', 'chromium'],
             capture_output=True,
             text=True,
             timeout=300  # 5 minute timeout for browser installation
@@ -65,6 +68,8 @@ def ensure_playwright_browsers():
         
         if result.returncode == 0:
             logging.info("Playwright browsers check/install completed successfully")
+            if result.stdout:
+                logging.info(f"Playwright output: {result.stdout[:500]}")
         else:
             logging.warning(f"Playwright browser install returned non-zero: {result.stderr}")
             
