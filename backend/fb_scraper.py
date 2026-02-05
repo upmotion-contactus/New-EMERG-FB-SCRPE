@@ -1,4 +1,4 @@
-"""Facebook Group Lead Scraper using Playwright"""
+"""Facebook Group Lead Scraper using Playwright - OPTIMIZED VERSION"""
 import asyncio
 import json
 import os
@@ -9,8 +9,9 @@ import glob
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Optional, List, Dict, Any
-from playwright.async_api import async_playwright, Browser, Page
+from playwright.async_api import async_playwright, Browser, Page, BrowserContext
 import logging
+from concurrent.futures import ThreadPoolExecutor
 
 from industry_config import matches_industry, detect_industry, is_qualified_prospect
 
@@ -20,6 +21,12 @@ logger = logging.getLogger(__name__)
 COOKIES_FILE = os.environ.get('FB_COOKIES_FILE', '/app/backend/fb_cookies.json')
 SCRAPE_DIR = os.environ.get('SCRAPE_DIR', '/app/scrape_files')
 BROWSER_PATH = os.environ.get('PLAYWRIGHT_BROWSERS_PATH', '/pw-browsers')
+
+# Performance tuning settings
+SCROLL_DELAY = float(os.environ.get('SCROLL_DELAY', '0.3'))  # Reduced from 0.8
+PAGE_LOAD_TIMEOUT = int(os.environ.get('PAGE_LOAD_TIMEOUT', '15000'))  # Reduced from 30000
+CONCURRENT_SCRAPES = int(os.environ.get('CONCURRENT_SCRAPES', '3'))  # Parallel profile scraping
+BATCH_SIZE = int(os.environ.get('BATCH_SIZE', '5'))  # Profiles per batch
 
 
 def find_chromium_executable() -> Optional[str]:
