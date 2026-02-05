@@ -503,28 +503,44 @@ async def stage1_collect_links(
     industry: str,
     status_callback: Callable,
     job_id: str,
-    collect_all: bool = False  # Changed to False - now filters for business prospects only
+    collect_all: bool = False,
+    start_time: datetime = None  # For timeout tracking
 ) -> Dict:
-    """Stage 1: Infinite scroll and collect member links - FILTERS FOR BUSINESSES ONLY"""
+    """Stage 1: Infinite scroll and collect member links - OPTIMIZED FOR LONG SCRAPES"""
     
     all_scanned = set()
     matches = []
     no_new_count = 0
     scroll_count = 0
-    max_scrolls = 50000  # Effectively unlimited - can handle 2M+ members
+    max_scrolls = 50000
+    last_gc = 0  # Track when we last did garbage collection
+    
+    if start_time is None:
+        start_time = datetime.now(timezone.utc)
     
     # Try to click "New to the group" section if available
     try:
         new_members_btn = await page.query_selector('text="New to the group"')
         if new_members_btn:
             await new_members_btn.click()
-            await asyncio.sleep(2)
+            await asyncio.sleep(1)
     except:
         pass
     
-    while scroll_count < max_scrolls and no_new_count < 15:  # Reduced patience - faster exit
-        # Extract member data from listitem elements (Facebook's member card structure)
-        # OPTIMIZED: Single pass extraction with all data
+    while scroll_count < max_scrolls and no_new_count < 20:
+        # Check timeout every 100 scrolls
+        if scroll_count % 100 == 0:
+            elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
+            if elapsed > 3600:  # 1 hour max for stage 1
+                logger.info(f"Stage 1 timeout after {elapsed:.0f}s, {len(all_scanned)} scanned")
+                break
+        
+        # MEMORY OPTIMIZATION: Clear old DOM references every 500 scrolls
+        if scroll_count - last_gc > 500:
+            await page.evaluate('() => { window.gc && window.gc(); }')
+            last_gc = scroll_count
+        
+        # Extract member data - OPTIMIZED single pass
         members_data = await page.evaluate('''
             () => {
                 const results = [];
