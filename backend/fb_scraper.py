@@ -225,10 +225,7 @@ async def scrape_facebook_group(
     
     formatted_cookies = format_cookies_for_playwright(cookies)
     
-    # Set browser path for Playwright
-    os.environ['PLAYWRIGHT_BROWSERS_PATH'] = '/pw-browsers'
-    
-    # Find Chromium executable dynamically
+    # Find Chromium executable dynamically (works in sandbox and production)
     chromium_path = find_chromium_executable()
     
     async with async_playwright() as p:
@@ -236,16 +233,33 @@ async def scrape_facebook_group(
             # Launch browser - use dynamic path or let Playwright find it
             launch_options = {
                 'headless': True,
-                'args': ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu', '--disable-dev-shm-usage']
+                'args': [
+                    '--no-sandbox', 
+                    '--disable-setuid-sandbox', 
+                    '--disable-gpu', 
+                    '--disable-dev-shm-usage',
+                    '--disable-software-rasterizer',
+                    '--single-process'
+                ]
             }
             
             if chromium_path:
                 launch_options['executable_path'] = chromium_path
-                logger.info(f"Launching Chromium from: {chromium_path}")
+                logger.info(f"Launching Chromium from custom path: {chromium_path}")
             else:
-                logger.info("Launching Chromium using Playwright's default path")
+                # In production Kubernetes, Playwright will use its own browser discovery
+                logger.info("Launching Chromium using Playwright's default browser discovery")
             
-            browser = await p.chromium.launch(**launch_options)
+            try:
+                browser = await p.chromium.launch(**launch_options)
+            except Exception as launch_error:
+                # If custom path fails, try without it (let Playwright find browser)
+                if chromium_path:
+                    logger.warning(f"Custom path failed ({launch_error}), trying Playwright default...")
+                    del launch_options['executable_path']
+                    browser = await p.chromium.launch(**launch_options)
+                else:
+                    raise launch_error
             
             context = await browser.new_context(
                 viewport={'width': 1920, 'height': 1080},
