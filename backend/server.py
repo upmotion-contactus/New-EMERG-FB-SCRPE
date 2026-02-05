@@ -386,7 +386,7 @@ def get_clawdbot_command():
 
 def ensure_moltbot_installed():
     """Ensure Moltbot dependencies are installed"""
-    install_script = "/app/backend/install_moltbot_deps.sh"
+    install_script = os.environ.get('MOLTBOT_INSTALL_SCRIPT', '/app/backend/install_moltbot_deps.sh')
 
     # Check if clawdbot is available
     clawdbot_cmd = get_clawdbot_command()
