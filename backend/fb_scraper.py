@@ -521,6 +521,15 @@ async def scrape_facebook_group(
                         'error': str(e),
                         'matches_found': 0
                     })
+                    
+                    # Don't exit loop on single URL error - continue to next URL
+                    status_callback({
+                        'status': 'running',
+                        'message': f'Error on group {url_idx + 1}/{len(urls)}, continuing to next...',
+                        'job_id': job_id,
+                        'url_progress': f'{url_idx + 1}/{len(urls)}'
+                    })
+                    continue  # Explicitly continue to next URL
             
             await browser.close()
             
