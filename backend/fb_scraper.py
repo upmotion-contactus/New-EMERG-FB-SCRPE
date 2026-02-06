@@ -428,16 +428,16 @@ async def scrape_facebook_group(
                         })
                         
                         # No limit on deep scraping - process ALL collected members
-                        # For very large groups, this runs in background
                         profiles_to_scrape = member_links['matches']
                         
                         scraped_data = await stage2_deep_scrape(
-                            page, profiles_to_scrape, status_callback, job_id, start_time
+                            page, profiles_to_scrape, status_callback, job_id, start_time,
+                            industry=industry, group_name=group_name
                         )
                         
                         all_matches.extend(scraped_data)
                         
-                        # Save to CSV
+                        # Save to CSV (final save)
                         if scraped_data:
                             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
                             slug_suffix = generate_slug_suffix()
