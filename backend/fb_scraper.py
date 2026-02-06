@@ -502,6 +502,16 @@ async def scrape_facebook_group(
                             'matches_found': 0,
                             'file': None
                         })
+                        
+                        # Update status - no matches but move to next
+                        status_callback({
+                            'status': 'running',
+                            'message': f'Completed group {url_idx + 1}/{len(urls)}: {group_name} (0 leads). Moving to next...',
+                            'job_id': job_id,
+                            'url_progress': f'{url_idx + 1}/{len(urls)}',
+                            'groups_completed': url_idx + 1,
+                            'total_groups': len(urls)
+                        })
                 
                 except Exception as e:
                     logger.error(f"Error processing URL {url}: {e}")
