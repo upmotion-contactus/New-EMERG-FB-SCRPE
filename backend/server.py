@@ -1536,13 +1536,64 @@ async def stop_job(job_id: str):
 
 @api_router.get("/scraper/jobs")
 async def list_jobs():
-    """List recent scraping jobs"""
+    """List recent scraping jobs - auto-cleanup stale running jobs"""
+    
+    # First, mark old "running" jobs as stale (older than 4 hours)
+    stale_cutoff = datetime.now(timezone.utc) - timedelta(hours=4)
+    await db.scraper_jobs.update_many(
+        {
+            'status': 'running',
+            'started_at': {'$lt': stale_cutoff.isoformat()}
+        },
+        {
+            '$set': {
+                'status': 'stale',
+                'message': 'Job timed out or was interrupted'
+            }
+        }
+    )
+    
     jobs = await db.scraper_jobs.find(
         {}, 
         {'_id': 0}
     ).sort('started_at', -1).limit(50).to_list(50)
     
     return {'jobs': jobs}
+
+
+@api_router.post("/scraper/jobs/cleanup")
+async def cleanup_jobs():
+    """Cleanup old and stuck jobs"""
+    
+    # Mark all running jobs older than 4 hours as stale
+    stale_cutoff = datetime.now(timezone.utc) - timedelta(hours=4)
+    result = await db.scraper_jobs.update_many(
+        {
+            'status': 'running',
+            'started_at': {'$lt': stale_cutoff.isoformat()}
+        },
+        {
+            '$set': {
+                'status': 'stale',
+                'message': 'Job timed out or was interrupted'
+            }
+        }
+    )
+    
+    # Clear in-memory stale jobs
+    stale_job_ids = []
+    for job_id, job in list(scraper_jobs.items()):
+        started = datetime.fromisoformat(job.get('started_at', '').replace('Z', '+00:00'))
+        if job.get('status') == 'running' and started < stale_cutoff:
+            scraper_jobs[job_id]['status'] = 'stale'
+            scraper_jobs[job_id]['message'] = 'Job timed out or was interrupted'
+            stale_job_ids.append(job_id)
+    
+    return {
+        'cleaned_db': result.modified_count,
+        'cleaned_memory': len(stale_job_ids),
+        'message': f'Cleaned up {result.modified_count + len(stale_job_ids)} stale jobs'
+    }
 
 
 # ============== Legacy Status Endpoints ==============
