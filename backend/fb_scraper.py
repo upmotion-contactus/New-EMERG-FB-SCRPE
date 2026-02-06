@@ -484,6 +484,16 @@ async def scrape_facebook_group(
                                 'matches_found': len(scraped_data),
                                 'file': filename
                             })
+                            
+                            # Update status after completing each group
+                            status_callback({
+                                'status': 'running',
+                                'message': f'Completed group {url_idx + 1}/{len(urls)}: {group_name} ({len(scraped_data)} leads). Moving to next...',
+                                'job_id': job_id,
+                                'url_progress': f'{url_idx + 1}/{len(urls)}',
+                                'groups_completed': url_idx + 1,
+                                'total_groups': len(urls)
+                            })
                     else:
                         results.append({
                             'url': url,
