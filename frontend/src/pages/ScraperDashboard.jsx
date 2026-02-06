@@ -580,6 +580,28 @@ export default function ScraperDashboard() {
                         const Icon = config.icon;
                         const csvFile = job.results?.[0]?.file;
                         
+                        const handleDownload = async (filename) => {
+                          try {
+                            const res = await fetch(`${API}/scrapes/download/${encodeURIComponent(filename)}`);
+                            if (res.ok) {
+                              const blob = await res.blob();
+                              const url = window.URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = filename;
+                              document.body.appendChild(a);
+                              a.click();
+                              window.URL.revokeObjectURL(url);
+                              a.remove();
+                              toast.success(`Downloaded ${filename}`);
+                            } else {
+                              toast.error('Download failed');
+                            }
+                          } catch (e) {
+                            toast.error('Download failed');
+                          }
+                        };
+                        
                         return (
                           <div
                             key={job.job_id}
@@ -598,7 +620,7 @@ export default function ScraperDashboard() {
                             </div>
                             {job.status === 'completed' && csvFile && (
                               <button
-                                onClick={() => window.open(`${API}/scrapes/download/${csvFile}`, '_blank')}
+                                onClick={() => handleDownload(csvFile)}
                                 className="p-1.5 rounded bg-emerald-900/50 hover:bg-emerald-800/50 text-emerald-400 transition-colors"
                                 title="Download CSV"
                               >
