@@ -939,13 +939,13 @@ async def stage2_deep_scrape(
     industry: str = 'unknown',
     group_name: str = 'unknown'
 ) -> List[Dict]:
-    """Stage 2: Deep scrape profiles - WITH CHECKPOINT SAVING"""
+    """Stage 2: Deep scrape profiles - WITH CHECKPOINT SAVING & SPEED OPTIMIZATION"""
     
     results = []
     total = len(matches)
     errors_in_row = 0
-    max_errors = 5  # Reduced - recover faster
-    checkpoint_interval = 25  # Save every 25 profiles
+    max_errors = 5
+    checkpoint_interval = 50  # Save every 50 profiles (changed from 25)
     last_checkpoint = 0
     
     if start_time is None:
@@ -963,6 +963,15 @@ async def stage2_deep_scrape(
                 logger.info(f"Stage 2 timeout after {elapsed:.0f}s, {idx}/{total} profiles done")
                 break
         
+        # SPEED OPTIMIZATION: After 2000 profiles, reduce delays to maintain speed
+        if idx >= 2000 and idx % 500 == 0:
+            # Clear browser cache/memory periodically for long scrapes
+            try:
+                await page.evaluate('() => { if (window.gc) window.gc(); }')
+                logger.info(f"Memory cleanup at profile {idx}")
+            except:
+                pass
+        
         # Status update every 10 profiles
         if idx % 10 == 0:
             status_callback({
@@ -973,7 +982,7 @@ async def stage2_deep_scrape(
                 'stage': 'deep_scraping'
             })
         
-        # CHECKPOINT SAVE - Save progress every N profiles
+        # CHECKPOINT SAVE - Save progress every 50 profiles
         if len(results) > 0 and len(results) - last_checkpoint >= checkpoint_interval:
             try:
                 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
