@@ -180,6 +180,7 @@ export default function ScraperDashboard() {
 
   const startPolling = (jobId) => {
     setPolling(true);
+    let completionNotified = false;  // Track if we've shown the completion toast
     
     const poll = async () => {
       try {
@@ -191,6 +192,7 @@ export default function ScraperDashboard() {
           if (['completed', 'error', 'stopped'].includes(data.status)) {
             setPolling(false);
             clearInterval(pollingRef.current);
+            pollingRef.current = null;  // Clear the ref
             
             const historyRes = await fetch(`${API}/scraper/jobs`);
             if (historyRes.ok) {
@@ -198,10 +200,14 @@ export default function ScraperDashboard() {
               setJobHistory(historyData.jobs || []);
             }
 
-            if (data.status === 'completed') {
-              toast.success(`Done! Found ${data.total_matches || 0} leads`);
-            } else if (data.status === 'error') {
-              toast.error(data.message || 'Failed');
+            // Only show toast once
+            if (!completionNotified) {
+              completionNotified = true;
+              if (data.status === 'completed') {
+                toast.success(`Done! Found ${data.total_matches || 0} leads`);
+              } else if (data.status === 'error') {
+                toast.error(data.message || 'Failed');
+              }
             }
           }
         }
