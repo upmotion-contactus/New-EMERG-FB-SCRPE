@@ -963,8 +963,8 @@ async def stage2_deep_scrape(
                 logger.info(f"Stage 2 timeout after {elapsed:.0f}s, {idx}/{total} profiles done")
                 break
         
-        # SPEED OPTIMIZATION: After 2000 profiles, reduce delays to maintain speed
-        if idx >= 2000 and idx % 500 == 0:
+        # SPEED OPTIMIZATION: After 1000 profiles, reduce delays to maintain speed
+        if idx >= 1000 and idx % 500 == 0:
             # Clear browser cache/memory periodically for long scrapes
             try:
                 await page.evaluate('() => { if (window.gc) window.gc(); }')
