@@ -470,31 +470,14 @@ async def scrape_facebook_group(
                         
                         all_matches.extend(scraped_data)
                         
-                        # Only save individual CSV if single group, otherwise wait for combined
-                        if len(urls) == 1 and scraped_data:
-                            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-                            slug_suffix = generate_slug_suffix()
-                            filename = f"{industry}_{slugify(group_name)}_{slug_suffix}_{timestamp}.csv"
-                            filepath = os.path.join(SCRAPE_DIR, filename)
-                            
-                            save_to_csv(scraped_data, filepath)
-                            
-                            results.append({
-                                'url': url,
-                                'group_name': group_name,
-                                'members_scanned': len(member_links.get('all_scanned', [])),
-                                'matches_found': len(scraped_data),
-                                'file': filename
-                            })
-                        else:
-                            # For multi-group, just track results (combined CSV saved at end)
-                            results.append({
-                                'url': url,
-                                'group_name': group_name,
-                                'members_scanned': len(member_links.get('all_scanned', [])),
-                                'matches_found': len(scraped_data),
-                                'file': None  # Will be set to combined file at end
-                            })
+                        # Track results - final CSV saved at the end (no individual saves)
+                        results.append({
+                            'url': url,
+                            'group_name': group_name,
+                            'members_scanned': len(member_links.get('all_scanned', [])),
+                            'matches_found': len(scraped_data),
+                            'file': None  # Will be set to final file at end
+                        })
                             
                         # Update status after completing each group
                         status_callback({
@@ -505,7 +488,8 @@ async def scrape_facebook_group(
                             'groups_completed': url_idx + 1,
                             'total_groups': len(urls),
                             'total_matches': len(all_matches),
-                            'total_scanned': total_scanned
+                            'total_scanned': total_scanned,
+                            'members_scanned': total_scanned
                         })
                     else:
                         results.append({
