@@ -1596,6 +1596,74 @@ async def cleanup_jobs():
     }
 
 
+@api_router.get("/leads")
+async def get_all_leads(industry: str = None, quality: str = None, limit: int = 500):
+    """Get all leads from database with optional filters"""
+    
+    query = {}
+    if industry:
+        query['industry'] = industry
+    if quality:
+        query['prospect_quality'] = quality
+    
+    leads = await db.leads.find(
+        query,
+        {'_id': 0}
+    ).sort('scraped_at', -1).limit(limit).to_list(limit)
+    
+    # Get summary stats
+    total = await db.leads.count_documents({})
+    with_phone = await db.leads.count_documents({'phone': {'$ne': ''}})
+    hot_leads = await db.leads.count_documents({'prospect_quality': 'HOT'})
+    
+    return {
+        'leads': leads,
+        'total': total,
+        'with_phone': with_phone,
+        'hot_leads': hot_leads
+    }
+
+
+@api_router.post("/leads/import-from-csv/{filename}")
+async def import_leads_from_csv(filename: str):
+    """Import leads from a CSV file into the database"""
+    import csv
+    
+    filepath = os.path.join(SCRAPE_FILES_DIR, filename)
+    if not os.path.exists(filepath):
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    # Parse industry from filename
+    industry = filename.split('_')[0] if '_' in filename else 'unknown'
+    
+    leads_imported = 0
+    with open(filepath, 'r', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            lead = {
+                'name': row.get('name', ''),
+                'phone': row.get('phone', ''),
+                'website': row.get('website', ''),
+                'has_website': row.get('has_website', 'No'),
+                'about': row.get('about', ''),
+                'url': row.get('url', ''),
+                'prospect_quality': row.get('prospect_quality', 'COLD'),
+                'industry': industry,
+                'source_file': filename,
+                'scraped_at': datetime.now(timezone.utc).isoformat()
+            }
+            
+            # Upsert by URL to avoid duplicates
+            await db.leads.update_one(
+                {'url': lead['url']},
+                {'$set': lead},
+                upsert=True
+            )
+            leads_imported += 1
+    
+    return {'imported': leads_imported, 'file': filename}
+
+
 # ============== Legacy Status Endpoints ==============
 
 @api_router.post("/status", response_model=StatusCheck)
