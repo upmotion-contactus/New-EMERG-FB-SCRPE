@@ -667,11 +667,14 @@ async def scrape_single_profile(page: Page, match: Dict) -> Dict:
                                   text.match(/\\((\\d{3})\\)\\s*(\\d{3})[-.]?(\\d{4})/);
                 if (phoneMatch) phone = phoneMatch[0];
                 
+                // Domains to skip (social media and messaging platforms)
+                const skipDomains = /facebook|instagram|twitter|youtube|tiktok|linkedin|whatsapp|wa\\.me|t\\.me|telegram|messenger/i;
+                
                 document.querySelectorAll('a[href*="l.facebook.com/l.php"]').forEach(a => {
                     if (website) return;
                     try {
                         const decoded = decodeURIComponent(new URL(a.href).searchParams.get('u') || '');
-                        if (decoded && !decoded.match(/facebook|instagram|twitter|youtube|tiktok|linkedin/i)) {
+                        if (decoded && !decoded.match(skipDomains)) {
                             website = decoded.split('?')[0];
                         }
                     } catch(e) {}
