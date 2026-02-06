@@ -544,20 +544,47 @@ async def scrape_facebook_group(
             })
             return {'success': False, 'error': str(e)}
     
+    # Create combined CSV with all leads from all groups
+    combined_filename = None
+    if all_matches and len(group_names_scraped) > 0:
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        slug_suffix = generate_slug_suffix()
+        
+        # Create filename with all group names (max 3 for readability)
+        if len(group_names_scraped) <= 3:
+            groups_slug = '_'.join([slugify(name)[:20] for name in group_names_scraped])
+        else:
+            groups_slug = '_'.join([slugify(name)[:15] for name in group_names_scraped[:3]]) + f'_and_{len(group_names_scraped)-3}_more'
+        
+        combined_filename = f"{industry}_{groups_slug}_{slug_suffix}_{timestamp}.csv"
+        combined_filepath = os.path.join(SCRAPE_DIR, combined_filename)
+        
+        # Add source group to each lead
+        for lead in all_matches:
+            if 'source_group' not in lead:
+                lead['source_group'] = ', '.join(group_names_scraped)
+        
+        save_to_csv(all_matches, combined_filepath)
+        logger.info(f"Saved combined CSV with {len(all_matches)} leads from {len(group_names_scraped)} groups: {combined_filename}")
+    
     # Final status
     status_callback({
         'status': 'completed',
-        'message': f'Completed! Found {len(all_matches)} leads from {len(urls)} groups.',
+        'message': f'Completed! Found {len(all_matches)} leads from {len(group_names_scraped)} groups.',
         'job_id': job_id,
         'total_matches': len(all_matches),
-        'total_scanned': total_scanned
+        'total_scanned': total_scanned,
+        'groups_scraped': group_names_scraped,
+        'combined_file': combined_filename
     })
     
     return {
         'success': True,
         'results': results,
         'total_matches': len(all_matches),
-        'total_scanned': total_scanned
+        'total_scanned': total_scanned,
+        'groups_scraped': group_names_scraped,
+        'combined_file': combined_filename
     }
 
 
