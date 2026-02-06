@@ -791,16 +791,34 @@ async def scrape_single_profile(page: Page, match: Dict) -> Dict:
             profile_url = f"https://www.facebook.com/profile.php?id={user_id}"
         
         await page.goto(profile_url, wait_until='domcontentloaded', timeout=PAGE_LOAD_TIMEOUT)
-        await asyncio.sleep(1.0)  # Increased wait for content to load
+        await asyncio.sleep(1.5)  # Wait for initial content
         
-        # Try to click "About" or "See About" to load more info
+        # Scroll down to trigger lazy loading of contact info
+        await page.evaluate('window.scrollBy(0, 500)')
+        await asyncio.sleep(0.5)
+        
+        # Try to click "About" tab to load contact information
         try:
-            about_btn = await page.query_selector('a[href*="/about"], span:has-text("See About"), span:has-text("About")')
-            if about_btn:
-                await about_btn.click()
-                await asyncio.sleep(0.8)
+            # Multiple selectors for About section
+            about_selectors = [
+                'a[href*="/about"]',
+                'a:has-text("About")',
+                'span:has-text("See About")',
+                'div[role="tab"]:has-text("About")',
+                '[data-pagelet="ProfileTabs"] a:has-text("About")'
+            ]
+            for selector in about_selectors:
+                about_btn = await page.query_selector(selector)
+                if about_btn:
+                    await about_btn.click()
+                    await asyncio.sleep(1.0)
+                    break
         except:
             pass
+        
+        # Scroll again after clicking About
+        await page.evaluate('window.scrollBy(0, 300)')
+        await asyncio.sleep(0.5)
         
         # IMPROVED extraction with multiple phone patterns and better website detection
         extracted = await page.evaluate('''
