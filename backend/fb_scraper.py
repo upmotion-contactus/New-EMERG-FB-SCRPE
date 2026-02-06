@@ -637,25 +637,7 @@ async def stage1_collect_links(
                 break
             
             await asyncio.sleep(1)
-            continue;
-                                break;
-                            }
-                        }
-                        
-                        const itemText = item.innerText || '';
-                        
-                        if (href && name) {
-                            results.push({
-                                href: href,
-                                name: name,
-                                context: itemText.substring(0, 300)  // Reduced context size for speed
-                            });
-                        }
-                    }
-                });
-                return results;
-            }
-        ''')
+            continue
         
         new_found = 0
         for item in members_data:
@@ -677,7 +659,6 @@ async def stage1_collect_links(
             full_text = f"{name} {context}"
             
             # FILTER: Only collect if they appear to be a business prospect
-            # Must have either: industry keywords OR business indicators (Works at, Owner, LLC, etc.)
             if is_qualified_prospect(full_text, industry):
                 matches.append({
                     'url': href, 
@@ -690,7 +671,7 @@ async def stage1_collect_links(
         else:
             no_new_count = 0
         
-        # Update progress with benchmark (50-member segments)
+        # Update progress
         benchmark_segment = min(len(all_scanned) // 50, 10)
         status_callback({
             'status': 'running',
@@ -702,15 +683,19 @@ async def stage1_collect_links(
             'stage': 'collecting'
         })
         
-        # OPTIMIZED: Faster scrolling with larger jumps and reduced delay
-        await page.evaluate('window.scrollBy(0, 1500)')
-        await asyncio.sleep(SCROLL_DELAY)
-        scroll_count += 1
-        
-        # Every 5 scrolls, do a bigger jump to load more content faster
-        if scroll_count % 5 == 0:
-            await page.evaluate('window.scrollTo(0, document.body.scrollHeight)')
-            await asyncio.sleep(0.3)
+        # Scroll with error handling
+        try:
+            await page.evaluate('window.scrollBy(0, 1500)')
+            await asyncio.sleep(SCROLL_DELAY)
+            scroll_count += 1
+            
+            # Every 5 scrolls, do a bigger jump
+            if scroll_count % 5 == 0:
+                await page.evaluate('window.scrollTo(0, document.body.scrollHeight)')
+                await asyncio.sleep(0.3)
+        except Exception as scroll_error:
+            logger.warning(f"Scroll error: {scroll_error}")
+            await asyncio.sleep(1)
     
     logger.info(f"Stage 1 complete: {len(all_scanned)} scanned, {len(matches)} matches")
     
