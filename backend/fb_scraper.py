@@ -241,8 +241,13 @@ async def take_debug_screenshot(page: Page, name: str):
 async def is_login_page(page: Page) -> bool:
     """Check if current page is Facebook login page"""
     try:
+        url = page.url
+        # Direct URL checks
+        if '/login' in url or 'login.php' in url or 'checkpoint' in url:
+            return True
+        
         title = await page.title()
-        if 'log in' in title.lower() or 'login' in title.lower():
+        if title and ('log in' in title.lower() or 'login' in title.lower() or 'facebook' == title.lower().strip()):
             return True
         
         # Check for login form elements
@@ -250,10 +255,36 @@ async def is_login_page(page: Page) -> bool:
         if login_form:
             return True
         
-        # Check page content
-        content = await page.content()
-        if 'id="loginbutton"' in content or 'name="login"' in content:
+        # Check for login button
+        login_btn = await page.query_selector('#loginbutton, button[name="login"], input[value="Log In"]')
+        if login_btn:
             return True
+        
+        # Check page content for login indicators
+        content = await page.content()
+        login_indicators = ['id="loginbutton"', 'name="login"', 'Create new account', 'Forgot password?']
+        if any(indicator in content for indicator in login_indicators):
+            return True
+        
+        return False
+    except:
+        return False
+
+
+async def verify_facebook_session(page: Page) -> bool:
+    """Verify that Facebook session is active by checking for user elements"""
+    try:
+        # Look for elements that only appear when logged in
+        user_menu = await page.query_selector('[aria-label="Your profile"], [aria-label="Account"], [data-pagelet="ProfileTilesFeed"]')
+        if user_menu:
+            return True
+        
+        # Check for navigation elements
+        nav = await page.query_selector('[role="navigation"]')
+        if nav:
+            nav_text = await nav.inner_text()
+            if 'Home' in nav_text or 'Friends' in nav_text:
+                return True
         
         return False
     except:
