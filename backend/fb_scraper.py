@@ -622,7 +622,7 @@ async def stage1_collect_links(
     except:
         pass
     
-    while scroll_count < max_scrolls and no_new_count < 20:
+    while scroll_count < max_scrolls and no_new_count < 35:  # Increased patience from 20 to 35
         # Check timeout every 100 scrolls
         if scroll_count % 100 == 0:
             elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
@@ -637,6 +637,14 @@ async def stage1_collect_links(
             except:
                 pass
             last_gc = scroll_count
+        
+        # When stalling, try scrolling to bottom to trigger more loading
+        if no_new_count > 0 and no_new_count % 10 == 0:
+            try:
+                await page.evaluate('window.scrollTo(0, document.body.scrollHeight)')
+                await asyncio.sleep(1.0)
+            except:
+                pass
         
         # Extract member data with error handling
         try:
