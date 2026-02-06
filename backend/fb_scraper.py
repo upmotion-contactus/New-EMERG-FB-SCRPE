@@ -764,7 +764,7 @@ async def stage1_collect_links(
 
 
 async def scrape_single_profile(page: Page, match: Dict) -> Dict:
-    """Scrape a single profile - helper for concurrent scraping"""
+    """Scrape a single profile - IMPROVED DATA EXTRACTION"""
     original_url = match['url']
     name = match.get('text', '').split('\n')[0].strip()[:100]
     
@@ -780,20 +780,66 @@ async def scrape_single_profile(page: Page, match: Dict) -> Dict:
             profile_url = f"https://www.facebook.com/profile.php?id={user_id}"
         
         await page.goto(profile_url, wait_until='domcontentloaded', timeout=PAGE_LOAD_TIMEOUT)
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(1.0)  # Increased wait for content to load
         
+        # Try to click "About" or "See About" to load more info
+        try:
+            about_btn = await page.query_selector('a[href*="/about"], span:has-text("See About"), span:has-text("About")')
+            if about_btn:
+                await about_btn.click()
+                await asyncio.sleep(0.8)
+        except:
+            pass
+        
+        # IMPROVED extraction with multiple phone patterns and better website detection
         extracted = await page.evaluate('''
             () => {
                 const text = document.body.innerText || '';
-                let phone = '', website = '', followers = '', bio = '';
+                const html = document.body.innerHTML || '';
+                let phone = '', website = '', followers = '', bio = '', email = '';
                 
-                const phoneMatch = text.match(/\\b(\\d{3}[-.]\\d{3}[-.]\\d{4})\\b/) ||
-                                  text.match(/\\((\\d{3})\\)\\s*(\\d{3})[-.]?(\\d{4})/);
-                if (phoneMatch) phone = phoneMatch[0];
+                // IMPROVED PHONE PATTERNS - More comprehensive
+                const phonePatterns = [
+                    /\\b(\\d{3}[-.]\\d{3}[-.]\\d{4})\\b/,                    // 555-555-5555
+                    /\\((\\d{3})\\)\\s*(\\d{3})[-.]?(\\d{4})/,               // (555) 555-5555
+                    /\\b(\\d{3})\\s+(\\d{3})\\s+(\\d{4})\\b/,                // 555 555 5555
+                    /\\b(\\d{10})\\b/,                                        // 5555555555
+                    /\\+1[-.]?(\\d{3})[-.]?(\\d{3})[-.]?(\\d{4})/,           // +1-555-555-5555
+                    /\\b1[-.]?(\\d{3})[-.]?(\\d{3})[-.]?(\\d{4})/,           // 1-555-555-5555
+                    /Mobile\\s*[:\\n]?\\s*(\\d[\\d\\s.-]+\\d)/i,             // Mobile: number
+                    /Phone\\s*[:\\n]?\\s*(\\d[\\d\\s.-]+\\d)/i,              // Phone: number
+                    /Call\\s*[:\\n]?\\s*(\\d[\\d\\s.-]+\\d)/i,               // Call: number
+                    /Contact\\s*[:\\n]?\\s*(\\d[\\d\\s.-]+\\d)/i,            // Contact: number
+                    /Tel\\s*[:\\n]?\\s*(\\d[\\d\\s.-]+\\d)/i,                // Tel: number
+                ];
+                
+                for (const pattern of phonePatterns) {
+                    const match = text.match(pattern);
+                    if (match) {
+                        // Clean up the phone number
+                        let rawPhone = match[0];
+                        // Extract just the digits
+                        let digits = rawPhone.replace(/\\D/g, '');
+                        // Format if we have 10 or 11 digits
+                        if (digits.length === 10) {
+                            phone = digits.slice(0,3) + '-' + digits.slice(3,6) + '-' + digits.slice(6);
+                            break;
+                        } else if (digits.length === 11 && digits[0] === '1') {
+                            phone = digits.slice(1,4) + '-' + digits.slice(4,7) + '-' + digits.slice(7);
+                            break;
+                        } else if (digits.length >= 10) {
+                            // Take last 10 digits
+                            digits = digits.slice(-10);
+                            phone = digits.slice(0,3) + '-' + digits.slice(3,6) + '-' + digits.slice(6);
+                            break;
+                        }
+                    }
+                }
                 
                 // Domains to skip (social media and messaging platforms)
-                const skipDomains = /facebook|instagram|twitter|youtube|tiktok|linkedin|whatsapp|wa\\.me|t\\.me|telegram|messenger/i;
+                const skipDomains = /facebook|instagram|twitter|youtube|tiktok|linkedin|whatsapp|wa\\.me|t\\.me|telegram|messenger|bit\\.ly|linktr\\.ee/i;
                 
+                // Method 1: External links via Facebook's redirect
                 document.querySelectorAll('a[href*="l.facebook.com/l.php"]').forEach(a => {
                     if (website) return;
                     try {
@@ -804,19 +850,69 @@ async def scrape_single_profile(page: Page, match: Dict) -> Dict:
                     } catch(e) {}
                 });
                 
+                // Method 2: Look for website mentions in text
+                if (!website) {
+                    const urlPattern = /(?:Website|Site|Web)[:\\s]*([a-zA-Z0-9][a-zA-Z0-9-]*\\.[a-zA-Z]{2,}(?:\\/[^\\s]*)?)/i;
+                    const urlMatch = text.match(urlPattern);
+                    if (urlMatch && !urlMatch[1].match(skipDomains)) {
+                        website = urlMatch[1].startsWith('http') ? urlMatch[1] : 'https://' + urlMatch[1];
+                    }
+                }
+                
+                // Method 3: Look for any .com/.net/.org links in the visible text
+                if (!website) {
+                    const domainPattern = /\\b([a-zA-Z0-9][a-zA-Z0-9-]*\\.(?:com|net|org|io|co|biz|info|us))\\b/gi;
+                    const domains = text.match(domainPattern);
+                    if (domains) {
+                        for (const domain of domains) {
+                            if (!domain.match(skipDomains) && !domain.match(/facebook|google|apple/i)) {
+                                website = 'https://' + domain.toLowerCase();
+                                break;
+                            }
+                        }
+                    }
+                }
+                
+                // Extract followers
                 const fm = text.match(/([\\d,\\.]+[KkMm]?)\\s*followers/i);
                 if (fm) followers = fm[1] + ' followers';
                 
-                const bm = text.match(/Intro\\n([^\\n]+)/i) || text.match(/About\\n([^\\n]+)/i);
-                if (bm) bio = bm[1].trim().substring(0, 100);
+                // Extract bio/intro - multiple patterns
+                const bioPatterns = [
+                    /Intro\\n([^\\n]+)/i,
+                    /About\\n([^\\n]+)/i,
+                    /Bio\\n([^\\n]+)/i,
+                    /Overview\\n([^\\n]+)/i,
+                ];
+                for (const pattern of bioPatterns) {
+                    const bm = text.match(pattern);
+                    if (bm) {
+                        bio = bm[1].trim().substring(0, 150);
+                        break;
+                    }
+                }
                 
-                return { phone, website, followers, bio };
+                // Extract email if present
+                const emailMatch = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}/);
+                if (emailMatch) email = emailMatch[0];
+                
+                return { phone, website, followers, bio, email };
             }
         ''')
         
         phone = extracted.get('phone', '')
         website = extracted.get('website', '')
-        about = f"{extracted.get('followers', '')} {extracted.get('bio', '')}".strip()
+        email = extracted.get('email', '')
+        
+        # Build about string
+        about_parts = []
+        if extracted.get('followers'):
+            about_parts.append(extracted.get('followers'))
+        if extracted.get('bio'):
+            about_parts.append(extracted.get('bio'))
+        if email:
+            about_parts.append(f"Email: {email}")
+        about = ' | '.join(about_parts)
         
     except asyncio.TimeoutError:
         logger.debug(f"Timeout scraping {name}")
