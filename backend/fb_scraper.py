@@ -536,16 +536,18 @@ async def stage1_collect_links(
     status_callback: Callable,
     job_id: str,
     collect_all: bool = False,
-    start_time: datetime = None  # For timeout tracking
+    start_time: datetime = None
 ) -> Dict:
-    """Stage 1: Infinite scroll and collect member links - OPTIMIZED FOR LONG SCRAPES"""
+    """Stage 1: Infinite scroll and collect member links - WITH ERROR RECOVERY"""
     
     all_scanned = set()
     matches = []
     no_new_count = 0
     scroll_count = 0
     max_scrolls = 50000
-    last_gc = 0  # Track when we last did garbage collection
+    last_gc = 0
+    consecutive_errors = 0
+    max_consecutive_errors = 5
     
     if start_time is None:
         start_time = datetime.now(timezone.utc)
@@ -569,25 +571,73 @@ async def stage1_collect_links(
         
         # MEMORY OPTIMIZATION: Clear old DOM references every 500 scrolls
         if scroll_count - last_gc > 500:
-            await page.evaluate('() => { window.gc && window.gc(); }')
+            try:
+                await page.evaluate('() => { window.gc && window.gc(); }')
+            except:
+                pass
             last_gc = scroll_count
         
-        # Extract member data - OPTIMIZED single pass
-        members_data = await page.evaluate('''
-            () => {
-                const results = [];
-                const seen = new Set();
-                document.querySelectorAll('[role="listitem"]').forEach(item => {
-                    const profileLinks = item.querySelectorAll('a[href*="/user/"]');
-                    if (profileLinks.length > 0) {
-                        const href = profileLinks[0].href;
-                        if (seen.has(href)) return;
-                        seen.add(href);
-                        
-                        let name = '';
-                        for (const link of profileLinks) {
-                            if (link.innerText && link.innerText.trim().length > 0) {
-                                name = link.innerText.trim();
+        # Extract member data with error handling
+        try:
+            members_data = await page.evaluate('''
+                () => {
+                    const results = [];
+                    const seen = new Set();
+                    document.querySelectorAll('[role="listitem"]').forEach(item => {
+                        const profileLinks = item.querySelectorAll('a[href*="/user/"]');
+                        if (profileLinks.length > 0) {
+                            const href = profileLinks[0].href;
+                            if (seen.has(href)) return;
+                            seen.add(href);
+                            
+                            let name = '';
+                            for (const link of profileLinks) {
+                                if (link.innerText && link.innerText.trim().length > 0) {
+                                    name = link.innerText.trim();
+                                    break;
+                                }
+                            }
+                            
+                            const itemText = item.innerText || '';
+                            
+                            if (href && name) {
+                                results.push({
+                                    href: href,
+                                    name: name,
+                                    context: itemText.substring(0, 300)
+                                });
+                            }
+                        }
+                    });
+                    return results;
+                }
+            ''')
+            consecutive_errors = 0  # Reset on success
+            
+        except Exception as e:
+            consecutive_errors += 1
+            error_msg = str(e)
+            logger.warning(f"Stage 1 extraction error ({consecutive_errors}): {error_msg[:100]}")
+            
+            # Handle specific errors
+            if 'Execution context was destroyed' in error_msg:
+                logger.error("Page navigation detected during collection")
+                # Try to recover by going back to members page
+                try:
+                    current_url = page.url
+                    if '/members' not in current_url:
+                        # Navigate back to members page
+                        await page.go_back()
+                        await asyncio.sleep(2)
+                except:
+                    pass
+            
+            if consecutive_errors >= max_consecutive_errors:
+                logger.error(f"Too many consecutive errors ({consecutive_errors}), stopping Stage 1")
+                break
+            
+            await asyncio.sleep(1)
+            continue;
                                 break;
                             }
                         }
