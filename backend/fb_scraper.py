@@ -585,6 +585,8 @@ async def scrape_facebook_group(
         'job_id': job_id,
         'total_matches': len(all_matches),
         'total_scanned': total_scanned,
+        'members_scanned': total_scanned,  # For frontend compatibility
+        'matches_found': len(all_matches),  # For frontend compatibility
         'groups_scraped': group_names_scraped,
         'combined_file': combined_filename
     })
