@@ -432,6 +432,7 @@ async def scrape_facebook_group(
                         pass
                     
                     logger.info(f"Scraping group: {group_name}")
+                    group_names_scraped.append(group_name)  # Track group name
                     
                     # Stage 1: Collect member links with infinite scroll
                     status_callback({
