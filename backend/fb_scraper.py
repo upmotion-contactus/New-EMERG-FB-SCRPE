@@ -470,8 +470,8 @@ async def scrape_facebook_group(
                         
                         all_matches.extend(scraped_data)
                         
-                        # Save to CSV (final save)
-                        if scraped_data:
+                        # Only save individual CSV if single group, otherwise wait for combined
+                        if len(urls) == 1 and scraped_data:
                             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
                             slug_suffix = generate_slug_suffix()
                             filename = f"{industry}_{slugify(group_name)}_{slug_suffix}_{timestamp}.csv"
@@ -486,16 +486,27 @@ async def scrape_facebook_group(
                                 'matches_found': len(scraped_data),
                                 'file': filename
                             })
-                            
-                            # Update status after completing each group
-                            status_callback({
-                                'status': 'running',
-                                'message': f'Completed group {url_idx + 1}/{len(urls)}: {group_name} ({len(scraped_data)} leads). Moving to next...',
-                                'job_id': job_id,
-                                'url_progress': f'{url_idx + 1}/{len(urls)}',
-                                'groups_completed': url_idx + 1,
-                                'total_groups': len(urls)
+                        else:
+                            # For multi-group, just track results (combined CSV saved at end)
+                            results.append({
+                                'url': url,
+                                'group_name': group_name,
+                                'members_scanned': len(member_links.get('all_scanned', [])),
+                                'matches_found': len(scraped_data),
+                                'file': None  # Will be set to combined file at end
                             })
+                            
+                        # Update status after completing each group
+                        status_callback({
+                            'status': 'running',
+                            'message': f'Completed group {url_idx + 1}/{len(urls)}: {group_name} ({len(scraped_data)} leads). Moving to next...',
+                            'job_id': job_id,
+                            'url_progress': f'{url_idx + 1}/{len(urls)}',
+                            'groups_completed': url_idx + 1,
+                            'total_groups': len(urls),
+                            'total_matches': len(all_matches),
+                            'total_scanned': total_scanned
+                        })
                     else:
                         results.append({
                             'url': url,
