@@ -302,6 +302,7 @@ async def scrape_facebook_group(
     results = []
     all_matches = []
     total_scanned = 0
+    group_names_scraped = []  # Track all group names for combined filename
     
     # Long scrape settings - EXTENDED FOR MULTI-HOUR SCRAPES
     MAX_SCRAPE_TIME = int(os.environ.get('MAX_SCRAPE_TIME', '14400'))  # 4 hours default
