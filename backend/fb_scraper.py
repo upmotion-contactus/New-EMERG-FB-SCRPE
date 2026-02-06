@@ -555,14 +555,16 @@ async def scrape_facebook_group(
             })
             return {'success': False, 'error': str(e)}
     
-    # Create combined CSV with all leads from all groups
+    # Save final CSV - only ONE file per scrape job
     combined_filename = None
     if all_matches and len(group_names_scraped) > 0:
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         slug_suffix = generate_slug_suffix()
         
         # Create filename with all group names (max 3 for readability)
-        if len(group_names_scraped) <= 3:
+        if len(group_names_scraped) == 1:
+            groups_slug = slugify(group_names_scraped[0])[:40]
+        elif len(group_names_scraped) <= 3:
             groups_slug = '_'.join([slugify(name)[:20] for name in group_names_scraped])
         else:
             groups_slug = '_'.join([slugify(name)[:15] for name in group_names_scraped[:3]]) + f'_and_{len(group_names_scraped)-3}_more'
@@ -576,7 +578,11 @@ async def scrape_facebook_group(
                 lead['source_group'] = ', '.join(group_names_scraped)
         
         save_to_csv(all_matches, combined_filepath)
-        logger.info(f"Saved combined CSV with {len(all_matches)} leads from {len(group_names_scraped)} groups: {combined_filename}")
+        logger.info(f"Saved CSV with {len(all_matches)} leads from {len(group_names_scraped)} groups: {combined_filename}")
+        
+        # Update results to point to the final file
+        for result in results:
+            result['file'] = combined_filename
     
     # Final status
     status_callback({
@@ -585,8 +591,8 @@ async def scrape_facebook_group(
         'job_id': job_id,
         'total_matches': len(all_matches),
         'total_scanned': total_scanned,
-        'members_scanned': total_scanned,  # For frontend compatibility
-        'matches_found': len(all_matches),  # For frontend compatibility
+        'members_scanned': total_scanned,
+        'matches_found': len(all_matches),
         'groups_scraped': group_names_scraped,
         'combined_file': combined_filename
     })
