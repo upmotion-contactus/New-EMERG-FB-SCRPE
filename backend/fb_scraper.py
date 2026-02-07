@@ -443,6 +443,13 @@ async def scrape_facebook_group(
                     logger.info(f"Scraping group: {group_name}")
                     group_names_scraped.append(group_name)  # Track group name
                     
+                    # Debug: Take screenshot of members page
+                    await take_debug_screenshot(page, f'members_page_{job_id[:8]}')
+                    
+                    # Debug: Log what we can see on the page
+                    page_content = await page.evaluate('() => document.body.innerText.substring(0, 2000)')
+                    logger.info(f"Page content preview: {page_content[:500]}...")
+                    
                     # Stage 1: Collect member links with infinite scroll
                     status_callback({
                         'status': 'running',
