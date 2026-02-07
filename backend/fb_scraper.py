@@ -153,72 +153,10 @@ def load_cookies() -> List[Dict]:
     try:
         with open(COOKIES_FILE, 'r') as f:
             cookies = json.load(f)
-        
-        if isinstance(cookies, list) and len(cookies) > 0:
-            # Check cookie expiration and log warning if close to expiring
-            import time
-            current_time = time.time()
-            for cookie in cookies:
-                exp = cookie.get('expirationDate', 0)
-                if exp and exp > 0:
-                    days_until_expiry = (exp - current_time) / 86400
-                    if days_until_expiry < 7:
-                        logger.warning(f"⚠️ Cookie '{cookie.get('name')}' expires in {days_until_expiry:.1f} days!")
-                    elif days_until_expiry < 0:
-                        logger.error(f"❌ Cookie '{cookie.get('name')}' has EXPIRED!")
-            
-            return cookies
-        return []
+        return cookies if isinstance(cookies, list) else []
     except Exception as e:
         logger.error(f"Error loading cookies: {e}")
         return []
-
-
-def check_cookie_expiration() -> Dict:
-    """Check cookie expiration status and return info"""
-    import time
-    current_time = time.time()
-    cookies = load_cookies()
-    
-    if not cookies:
-        return {'valid': False, 'message': 'No cookies configured'}
-    
-    expired = []
-    expiring_soon = []
-    valid = []
-    
-    for cookie in cookies:
-        name = cookie.get('name', 'unknown')
-        exp = cookie.get('expirationDate', 0)
-        
-        if exp and exp > 0:
-            days_until_expiry = (exp - current_time) / 86400
-            if days_until_expiry < 0:
-                expired.append({'name': name, 'days': days_until_expiry})
-            elif days_until_expiry < 7:
-                expiring_soon.append({'name': name, 'days': days_until_expiry})
-            else:
-                valid.append({'name': name, 'days': days_until_expiry})
-    
-    if expired:
-        return {
-            'valid': False,
-            'message': f'{len(expired)} cookies have expired. Please update your cookies.',
-            'expired': expired,
-            'expiring_soon': expiring_soon
-        }
-    elif expiring_soon:
-        return {
-            'valid': True,
-            'message': f'{len(expiring_soon)} cookies expiring soon',
-            'expiring_soon': expiring_soon
-        }
-    else:
-        return {
-            'valid': True,
-            'message': 'All cookies are valid',
-            'days_until_earliest_expiry': min([c['days'] for c in valid]) if valid else None
-        }
 
 
 def save_cookies(cookies: List[Dict]) -> bool:
@@ -464,98 +402,23 @@ async def scrape_facebook_group(
                 })
                 
                 try:
-                    # Navigate to group page first
-                    group_url = url.rstrip('/')
-                    logger.info(f"Navigating to group: {group_url}")
+                    # Navigate to group members page
+                    members_url = url.rstrip('/') + '/members'
+                    logger.info(f"Navigating to: {members_url}")
                     
-                    await page.goto(group_url, wait_until='domcontentloaded', timeout=60000)
+                    await page.goto(members_url, wait_until='domcontentloaded', timeout=60000)
                     await asyncio.sleep(3)
                     
                     # Check for login page
                     if await is_login_page(page):
-                        logger.error("Facebook login required - cookies may be expired")
                         await take_debug_screenshot(page, 'login_detected')
                         status_callback({
                             'status': 'error',
-                            'message': 'Facebook login required. Please update cookies.',
+                            'message': 'Facebook login required. Please update your cookies.',
                             'job_id': job_id
                         })
-                        return {'success': False, 'error': 'Facebook login required'}
-                    
-                    # Click on "People" tab to get to members list
-                    logger.info("Looking for People/Members tab...")
-                    members_clicked = False
-                    
-                    # Try clicking with JavaScript evaluation for better reliability
-                    try:
-                        clicked = await page.evaluate('''
-                            () => {
-                                // Look for "People" text in links/spans
-                                const elements = document.querySelectorAll('a, span, div[role="tab"]');
-                                for (const el of elements) {
-                                    const text = el.innerText?.trim();
-                                    if (text === 'People' || text === 'Members') {
-                                        el.click();
-                                        return true;
-                                    }
-                                }
-                                // Also try href-based matching
-                                const memberLinks = document.querySelectorAll('a[href*="/members"], a[href*="/people"]');
-                                if (memberLinks.length > 0) {
-                                    memberLinks[0].click();
-                                    return true;
-                                }
-                                return false;
-                            }
-                        ''')
-                        if clicked:
-                            members_clicked = True
-                            logger.info("Clicked People/Members tab via JS")
-                            await asyncio.sleep(3)
-                    except Exception as e:
-                        logger.warning(f"JS click failed: {e}")
-                    
-                    # If JS click didn't work, try Playwright click
-                    if not members_clicked:
-                        member_selectors = [
-                            'a:has-text("People")',
-                            'span:has-text("People")',
-                            'a:has-text("Members")',
-                            'a[href*="/members"]',
-                            'div[role="tab"]:has-text("People")',
-                        ]
-                        
-                        for selector in member_selectors:
-                            try:
-                                member_tab = await page.query_selector(selector)
-                                if member_tab:
-                                    await member_tab.click(force=True)
-                                    await asyncio.sleep(3)
-                                    members_clicked = True
-                                    logger.info(f"Clicked members tab using selector: {selector}")
-                                    break
-                            except Exception as e:
-                                logger.debug(f"Selector {selector} failed: {e}")
-                                continue
-                    
-                    # If still no luck, try direct URL navigation to /people
-                    if not members_clicked:
-                        members_url = group_url + '/people'
-                        logger.info(f"Trying direct navigation to: {members_url}")
-                        await page.goto(members_url, wait_until='domcontentloaded', timeout=60000)
-                        await asyncio.sleep(3)
-                    
-                    # Initial scrolls to trigger member loading
-                    for _ in range(5):
-                        await page.evaluate('window.scrollBy(0, 500)')
-                        await asyncio.sleep(0.5)
-                    
-                    # Scroll back to top
-                    await page.evaluate('window.scrollTo(0, 0)')
-                    await asyncio.sleep(1)
-                    
-                    # Take debug screenshot
-                    await take_debug_screenshot(page, f'after_members_click_{job_id[:8]}')
+                        await browser.close()
+                        return {'success': False, 'error': 'Login required - cookies expired'}
                     
                     # Extract group name from page
                     group_name = 'unknown_group'
@@ -570,13 +433,6 @@ async def scrape_facebook_group(
                     
                     logger.info(f"Scraping group: {group_name}")
                     group_names_scraped.append(group_name)  # Track group name
-                    
-                    # Debug: Take screenshot of members page
-                    await take_debug_screenshot(page, f'members_page_{job_id[:8]}')
-                    
-                    # Debug: Log what we can see on the page
-                    page_content = await page.evaluate('() => document.body.innerText.substring(0, 2000)')
-                    logger.info(f"Page content preview: {page_content[:500]}...")
                     
                     # Stage 1: Collect member links with infinite scroll
                     status_callback({
@@ -796,10 +652,8 @@ async def stage1_collect_links(
                 () => {
                     const results = [];
                     const seen = new Set();
-                    
-                    // Method 1: Look for listitem with user links
                     document.querySelectorAll('[role="listitem"]').forEach(item => {
-                        const profileLinks = item.querySelectorAll('a[href*="/user/"], a[href*="profile.php"]');
+                        const profileLinks = item.querySelectorAll('a[href*="/user/"]');
                         if (profileLinks.length > 0) {
                             const href = profileLinks[0].href;
                             if (seen.has(href)) return;
@@ -824,63 +678,6 @@ async def stage1_collect_links(
                             }
                         }
                     });
-                    
-                    // Method 2: Direct search for profile links if Method 1 found few results
-                    if (results.length < 10) {
-                        document.querySelectorAll('a[href*="/user/"], a[href*="profile.php?id="]').forEach(link => {
-                            const href = link.href;
-                            if (!href || seen.has(href)) return;
-                            
-                            // Skip if not a profile link
-                            if (!href.includes('/user/') && !href.includes('profile.php')) return;
-                            
-                            const name = link.innerText?.trim();
-                            if (!name || name.length < 2) return;
-                            
-                            // Skip common non-name texts
-                            if (['See more', 'View profile', 'Message', 'Add friend', 'Like', 'Comment'].includes(name)) return;
-                            
-                            seen.add(href);
-                            
-                            // Get parent context
-                            let context = '';
-                            let parent = link.parentElement;
-                            for (let i = 0; i < 5 && parent; i++) {
-                                if (parent.innerText && parent.innerText.length > context.length) {
-                                    context = parent.innerText.substring(0, 300);
-                                }
-                                parent = parent.parentElement;
-                            }
-                            
-                            results.push({
-                                href: href,
-                                name: name,
-                                context: context
-                            });
-                        });
-                    }
-                    
-                    // Method 3: Look for member cards by common class patterns
-                    if (results.length < 10) {
-                        document.querySelectorAll('div[data-visualcompletion="ignore-dynamic"]').forEach(item => {
-                            const links = item.querySelectorAll('a[href*="/user/"], a[href*="profile.php"]');
-                            links.forEach(link => {
-                                const href = link.href;
-                                if (!href || seen.has(href)) return;
-                                
-                                const name = link.innerText?.trim();
-                                if (!name || name.length < 2) return;
-                                
-                                seen.add(href);
-                                results.push({
-                                    href: href,
-                                    name: name,
-                                    context: item.innerText?.substring(0, 300) || ''
-                                });
-                            });
-                        });
-                    }
-                    
                     return results;
                 }
             ''')
@@ -994,28 +791,34 @@ async def scrape_single_profile(page: Page, match: Dict) -> Dict:
             profile_url = f"https://www.facebook.com/profile.php?id={user_id}"
         
         await page.goto(profile_url, wait_until='domcontentloaded', timeout=PAGE_LOAD_TIMEOUT)
-        await asyncio.sleep(1.0)  # Reduced from 1.5s
+        await asyncio.sleep(1.5)  # Wait for initial content
         
-        # Quick scroll to trigger content loading
-        await page.evaluate('window.scrollBy(0, 300)')
-        await asyncio.sleep(0.3)
+        # Scroll down to trigger lazy loading of contact info
+        await page.evaluate('window.scrollBy(0, 500)')
+        await asyncio.sleep(0.5)
         
-        # Try to click "About" tab - quick attempt only
+        # Try to click "About" tab to load contact information
         try:
-            clicked = await page.evaluate('''
-                () => {
-                    const aboutLink = document.querySelector('a[href*="/about"]');
-                    if (aboutLink) {
-                        aboutLink.click();
-                        return true;
-                    }
-                    return false;
-                }
-            ''')
-            if clicked:
-                await asyncio.sleep(0.8)
+            # Multiple selectors for About section
+            about_selectors = [
+                'a[href*="/about"]',
+                'a:has-text("About")',
+                'span:has-text("See About")',
+                'div[role="tab"]:has-text("About")',
+                '[data-pagelet="ProfileTabs"] a:has-text("About")'
+            ]
+            for selector in about_selectors:
+                about_btn = await page.query_selector(selector)
+                if about_btn:
+                    await about_btn.click()
+                    await asyncio.sleep(1.0)
+                    break
         except:
             pass
+        
+        # Scroll again after clicking About
+        await page.evaluate('window.scrollBy(0, 300)')
+        await asyncio.sleep(0.5)
         
         # IMPROVED extraction with multiple phone patterns and better website detection
         extracted = await page.evaluate('''
@@ -1230,11 +1033,9 @@ async def stage2_deep_scrape(
                 logger.warning(f"Checkpoint save failed: {e}")
         
         try:
-            logger.info(f"Starting scrape for profile {idx+1}/{total}: {match.get('text', 'unknown')[:30]}")
             result = await scrape_single_profile(page, match)
             results.append(result)
             errors_in_row = 0
-            logger.info(f"Completed profile {idx+1}/{total}, phone={result.get('phone', '')}, website={result.get('website', '')[:30] if result.get('website') else ''}")
             
         except Exception as e:
             errors_in_row += 1
