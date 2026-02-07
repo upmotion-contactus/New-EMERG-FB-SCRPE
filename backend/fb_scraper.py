@@ -1168,9 +1168,11 @@ async def stage2_deep_scrape(
                 logger.warning(f"Checkpoint save failed: {e}")
         
         try:
+            logger.info(f"Starting scrape for profile {idx+1}/{total}: {match.get('text', 'unknown')[:30]}")
             result = await scrape_single_profile(page, match)
             results.append(result)
             errors_in_row = 0
+            logger.info(f"Completed profile {idx+1}/{total}, phone={result.get('phone', '')}, website={result.get('website', '')[:30] if result.get('website') else ''}")
             
         except Exception as e:
             errors_in_row += 1
