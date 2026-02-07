@@ -1,0 +1,134 @@
+<analysis>**original_problem_statement:**
+The user's series of requests evolved from a simple preview to a complex debugging and feature enhancement process for a Facebook Group Lead Scraper application. The core requirements were:
+1.  Ensure the Lead Scraper and Lead Database pages are synchronized.
+2.  Fix Playwright/Chromium browser errors that prevented the scraper from running, especially in a deployment environment.
+3.  Address issues where the scraper would get stuck, not find any members, or not iterate through multiple group URLs.
+4.  Improve data extraction accuracy, specifically for phone numbers and websites that were being missed.
+5.  Fix UI/UX bugs, including duplicate file creation, incorrect member scan counts, and repeated scrape complete notifications.
+6.  After a series of fixes led to instability, the user requested to **revert the core scraping logic** to a stable version from February 6th.
+7.  Finally, the user asked to **re-apply all other housekeeping improvements** (like single file saving and cookie awareness) onto the reverted, stable scraping code base, without altering the core scraping mechanism itself.
+
+**User's preferred language**: English
+
+**what currently exists?**
+The project is a full-stack Facebook Group Lead Scraper with a React frontend and a FastAPI backend. The core scraping logic located in  has been reverted to a stable version from February 6th, as requested by the user. Some of the non-scraping-related improvements (housekeeping features) that were made after that date have been partially re-implemented. The application is in a hybrid state, pending the completion of this re-integration task.
+
+**Last working item**:
+*   **Last item agent was working:** The agent was executing the user's request to re-apply housekeeping features to the reverted, stable version of the scraper. The goal is to combine the reliability of the old scraping engine with the UI/UX and file management improvements made more recently. The agent started by re-implementing the function to check for cookie expiration.
+*   **Status:** IN PROGRESS
+*   **Agent Testing Done:** N
+*   **Which testing method agent to use?** both
+*   **User Testing Done:** N
+
+**All Pending/In progress Issue list**:
+*   **Issue 1 (P0):** Complete the re-implementation of housekeeping features onto the reverted codebase.
+
+**Issues Detail:**
+*   **Issue 1: Complete re-implementation of housekeeping features**
+    *   **Attempted fixes:** The agent has successfully reverted the code to the desired commit () and has started re-adding features by implementing the  function in .
+    *   **Next debug checklist:**
+        1.  Integrate the  logic into the  endpoint in .
+        2.  Re-implement the logic to save only a **single, final CSV file** per job. This involves removing checkpoint saves within the loop and adding logic to create one combined file at the end of a multi-group scrape, or a single file for a single-group scrape.
+        3.  Re-apply the frontend fix in  to prevent repeated scrape complete notifications, likely using a state flag like .
+        4.  Ensure the final job status payload from the backend is consistent with what the frontend expects, particularly for displaying the total number of members scanned.
+    *   **Why fix this issue and what will be achieved with the fix?** To satisfy the user's request for a stable application that combines the reliable old scraping engine with the improved usability and file management features developed recently.
+    *   **Status:** IN PROGRESS
+    *   **Is recurring issue?** N
+    *   **Should Test frontend/backend/both after fix?** Both
+    *   **Blocked on other issue:** None
+
+**In progress Task List**:
+*   **Task 1: Re-implement housekeeping features**
+    *   **Where to resume:** The agent has added the cookie check function. The next step is to modify  to use this function, and then address the single-file-saving logic.
+    *   **What will be achieved with this?** A stable, functional application that meets all of the user's current requirements.
+    *   **Status:** IN PROGRESS
+    *   **Should Test frontend/backend/both after fix?** Both
+    *   **Blocked on something:** None
+
+**Upcoming and Future Tasks**
+*   There are no upcoming or future tasks. The immediate goal is to stabilize the application as per the user's latest request.
+
+**Completed work in this session**
+- **Core Scraping Logic Reverted:** The scraper's code in  was successfully reverted to the stable version from February 6th (commit ).
+- **Member Scanning Fixed:** Resolved a critical bug where the scraper failed to navigate to the People tab in Facebook groups, which now allows it to find and scan members correctly.
+- **Playwright Path Issues Resolved:** Made all hardcoded browser and file paths dynamic using environment variables, ensuring the application can run in different environments.
+- **Download Functionality Fixed:** Repaired the CSV download buttons on both the Lead Scraper and Lead Database pages.
+- **Lead Persistence in DB:** Implemented functionality to save all scraped leads to a MongoDB collection for persistence beyond CSV files.
+- **Stale Job & Error Handling:** Implemented various reliability features, including cleanup of stuck jobs, which are now being re-applied.
+
+**Earlier issues found/mentioned but not fixed**
+*   None. All previously mentioned issues were either fixed and retained, or were part of the functionality that was intentionally reverted.
+
+**Known issue recurrence from previous fork**
+*   None.
+
+**Code Architecture**
+
+
+**Key Technical Concepts**
+*   **Frontend:** React, Tailwind CSS, Axios
+*   **Backend:** FastAPI, Playwright, Pymongo
+*   **Database:** MongoDB
+*   **Scraping:** The application uses Playwright to automate a web browser, log into Facebook using user-provided cookies, navigate to groups, and scrape member data.
+
+**key DB schema**
+*   **leads:** Stores individual lead data (, , , , , etc.).
+*   **jobs:** Stores metadata for each scraping job (, , , , etc.).
+
+**changes in tech stack**
+*   No changes to the core tech stack.
+
+**All files of reference**
+*   : Contains the core scraping logic. **This file has been reverted and should only have housekeeping changes applied, not changes to the scraping/scanning mechanism.**
+*   : Manages API endpoints, job state, and background tasks. This file will need modification to re-implement housekeeping features.
+*   : The main UI. This file will need a small modification to fix the repeated notifications bug.
+
+**Areas that need refactoring**:
+*   The  file is large and could be modularized for better maintainability.
+*   Job state management in  relies on an in-memory dictionary, which could be fully consolidated into the MongoDB  collection to be more robust.
+
+**key api endpoints**
+*   : Initiates a scrape job.
+*   : Polls for the status of a running job.
+*   : Checks cookie validity.
+*   : Downloads a result CSV.
+*   : Retrieves all persistent leads from the database.
+
+**Critical Info for New Agent**
+*   **DO NOT MODIFY THE CORE SCRAPING LOGIC.** The user explicitly requested to revert  to a stable state and to only re-apply non-scraping-related housekeeping features. Any changes to how the scraper scrolls, finds members, or extracts data from profiles should be avoided.
+*   Your primary task is to finish re-implementing the lost features: ensuring only one CSV file is saved per job and fixing the repeated notification bug on the frontend.
+*   The user last provided valid cookies in message #735. These should be used for testing.
+
+**documents and test reports created in this job**
+*   None.
+
+**Last 10 User Messages and any pending HUMAN messages**
+1.  **Okay we are back now do not make any updates to the scraper but make sure the other housekeeping like no creating duplicate files, being aware of cookies error and every other update we have made. But leave the Scanning and Scrapping portion alone** - User confirmed the revert and provided the current task. (IN PROGRESS)
+2.  **The scraper is having too many errors can you set the scraper back to when this scrape was completed...** - User requested the code revert. (COMPLETED)
+3.  **how many profiles were scanned on the scrape I just did in the App Preview?** - User asked for scrape statistics. (COMPLETED)
+4.  **It is because the cookies expired... I will give you a new Facebook Group to test with and fresh cookies.** - User provided new credentials for testing. (COMPLETED)
+5.  **We are having the same issue where it is only scanning 3 members...** - User reported the critical member scanning bug. (COMPLETED)
+6.  **Improvements are being made... There are two files being downloaded after the scrape...** - User reported the duplicate file issue. (IN PROGRESS)
+7.  **Here are a few issues that need resolving... duplicate files... repeatedly get scrape complete notifications...** - User provided a list of bugs. (IN PROGRESS)
+8.  **Can you make the memory cleanup routine start at 1000+ profiles...** - User requested a parameter change. (REVERTED)
+9.  **Can you make the Save points for profiles about every 50 instead of 25... The real issue I would like to address...** - User reported a data extraction issue. (REVERTED)
+10. **Everything looks good I am going to redeploy** - User expressed satisfaction before issues arose.
+
+**Project Health Check:**
+*   **Broken:** The application is in a partially complete state, pending the re-integration of several key housekeeping features onto a reverted codebase.
+*   **Mocked:** None.
+
+**3rd Party Integrations**
+*   None.
+
+**Testing status**
+*   **Testing agent used after significant changes:** NO
+*   **Troubleshoot agent used after agent stuck in loop:** NO
+*   **Test files created:** []
+*   **Known regressions:** Advanced scraping optimizations and data extraction improvements were intentionally reverted at the user's request due to instability.
+
+**Credentials to test flow:**
+The user has provided Facebook cookies, which were saved to . These are required to test the scraping functionality.
+
+**What agent forgot to execute**
+The agent has correctly identified the user's latest request and is in the middle of executing it. Nothing has been forgotten.</analysis>

@@ -1,9 +1,9 @@
 # Lead Scraper - Clawdbot Handoff Documentation
 
 ## Quick Links
-- **Lead Scraper Dashboard**: https://pre-deploy-view-1.preview.emergentagent.com/scraper
-- **Scrape Database**: https://pre-deploy-view-1.preview.emergentagent.com/scrapes
-- **MoltBot Setup**: https://pre-deploy-view-1.preview.emergentagent.com/
+- **Lead Scraper Dashboard**: https://scraper-rebuild.preview.emergentagent.com/scraper
+- **Scrape Database**: https://scraper-rebuild.preview.emergentagent.com/scrapes
+- **MoltBot Setup**: https://scraper-rebuild.preview.emergentagent.com/
 
 ## Overview
 Multi-Industry Facebook Group Lead Scraper built on MoltBot platform.

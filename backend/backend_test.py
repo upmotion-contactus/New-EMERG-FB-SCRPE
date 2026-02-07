@@ -3,7 +3,7 @@ import sys
 from datetime import datetime
 
 class MoltbotAPITester:
-    def __init__(self, base_url="https://pre-deploy-view-1.preview.emergentagent.com/api"):
+    def __init__(self, base_url="https://scraper-rebuild.preview.emergentagent.com/api"):
         self.base_url = base_url
         self.tests_run = 0
         self.tests_passed = 0
