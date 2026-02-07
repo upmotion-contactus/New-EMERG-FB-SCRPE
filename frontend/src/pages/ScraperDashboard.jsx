@@ -56,7 +56,17 @@ export default function ScraperDashboard() {
 
     fetch(`${API}/scraper/cookies/status`)
       .then(res => res.json())
-      .then(data => setCookiesConfigured(data.configured))
+      .then(data => {
+        setCookiesConfigured(data.configured);
+        if (data.configured) {
+          setCookieExpiration({
+            valid: data.valid,
+            message: data.message,
+            expiringSoon: data.expiring_soon || [],
+            expired: data.expired || []
+          });
+        }
+      })
       .catch(console.error);
 
     fetch(`${API}/scraper/jobs`)
