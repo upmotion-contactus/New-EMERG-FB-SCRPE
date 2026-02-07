@@ -402,15 +402,56 @@ async def scrape_facebook_group(
                 })
                 
                 try:
-                    # Navigate to group members page
-                    members_url = url.rstrip('/') + '/members'
-                    logger.info(f"Navigating to: {members_url}")
+                    # Navigate to group page first
+                    group_url = url.rstrip('/')
+                    logger.info(f"Navigating to group: {group_url}")
                     
-                    await page.goto(members_url, wait_until='domcontentloaded', timeout=60000)
+                    await page.goto(group_url, wait_until='domcontentloaded', timeout=60000)
                     await asyncio.sleep(3)
                     
+                    # Check for login page
+                    if await is_login_page(page):
+                        logger.error("Facebook login required - cookies may be expired")
+                        await take_debug_screenshot(page, 'login_detected')
+                        status_callback({
+                            'status': 'error',
+                            'message': 'Facebook login required. Please update cookies.',
+                            'job_id': job_id
+                        })
+                        return {'success': False, 'error': 'Facebook login required'}
+                    
+                    # Try to click on "People" or "Members" tab to get to members list
+                    members_clicked = False
+                    member_selectors = [
+                        'a[href*="/members"]',
+                        'a:has-text("People")',
+                        'a:has-text("Members")',
+                        'span:has-text("People")',
+                        'div[role="tab"]:has-text("People")',
+                        'div[role="tab"]:has-text("Members")',
+                    ]
+                    
+                    for selector in member_selectors:
+                        try:
+                            member_tab = await page.query_selector(selector)
+                            if member_tab:
+                                await member_tab.click()
+                                await asyncio.sleep(3)
+                                members_clicked = True
+                                logger.info(f"Clicked members tab using selector: {selector}")
+                                break
+                        except:
+                            continue
+                    
+                    # If clicking didn't work, try direct URL navigation
+                    if not members_clicked:
+                        members_url = group_url + '/members'
+                        logger.info(f"Trying direct navigation to: {members_url}")
+                        await page.goto(members_url, wait_until='domcontentloaded', timeout=60000)
+                        await asyncio.sleep(3)
+                    
                     # Initial scrolls to trigger member loading
-                    for _ in range(3):
+                    for _ in range(5):
                         await page.evaluate('window.scrollBy(0, 500)')
                         await asyncio.sleep(0.5)
                     
@@ -418,8 +459,8 @@ async def scrape_facebook_group(
                     await page.evaluate('window.scrollTo(0, 0)')
                     await asyncio.sleep(1)
                     
-                    # Check for login page
-                    if await is_login_page(page):
+                    # Take debug screenshot
+                    await take_debug_screenshot(page, f'after_members_click_{job_id[:8]}')
                         await take_debug_screenshot(page, 'login_detected')
                         status_callback({
                             'status': 'error',
