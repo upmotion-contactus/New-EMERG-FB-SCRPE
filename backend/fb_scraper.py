@@ -409,6 +409,15 @@ async def scrape_facebook_group(
                     await page.goto(members_url, wait_until='domcontentloaded', timeout=60000)
                     await asyncio.sleep(3)
                     
+                    # Initial scrolls to trigger member loading
+                    for _ in range(3):
+                        await page.evaluate('window.scrollBy(0, 500)')
+                        await asyncio.sleep(0.5)
+                    
+                    # Scroll back to top
+                    await page.evaluate('window.scrollTo(0, 0)')
+                    await asyncio.sleep(1)
+                    
                     # Check for login page
                     if await is_login_page(page):
                         await take_debug_screenshot(page, 'login_detected')
