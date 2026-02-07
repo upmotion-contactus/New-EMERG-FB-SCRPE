@@ -528,6 +528,25 @@ export default function ScraperDashboard() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
+                  {/* Cookie expiration warning */}
+                  {cookiesConfigured && cookieExpiration && !cookieExpiration.valid && (
+                    <div className="flex items-start gap-2 p-3 bg-red-950/50 border border-red-800/50 rounded-lg" data-testid="cookie-expired-warning">
+                      <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-xs font-medium text-red-400">Cookies Expired</p>
+                        <p className="text-xs text-red-400/70 mt-0.5">{cookieExpiration.message}</p>
+                      </div>
+                    </div>
+                  )}
+                  {cookiesConfigured && cookieExpiration && cookieExpiration.valid && cookieExpiration.expiringSoon?.length > 0 && (
+                    <div className="flex items-start gap-2 p-3 bg-amber-950/50 border border-amber-800/50 rounded-lg" data-testid="cookie-expiring-warning">
+                      <AlertCircle className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-xs font-medium text-amber-400">Cookies Expiring Soon</p>
+                        <p className="text-xs text-amber-400/70 mt-0.5">{cookieExpiration.message}</p>
+                      </div>
+                    </div>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"
