@@ -461,14 +461,6 @@ async def scrape_facebook_group(
                     
                     # Take debug screenshot
                     await take_debug_screenshot(page, f'after_members_click_{job_id[:8]}')
-                        await take_debug_screenshot(page, 'login_detected')
-                        status_callback({
-                            'status': 'error',
-                            'message': 'Facebook login required. Please update your cookies.',
-                            'job_id': job_id
-                        })
-                        await browser.close()
-                        return {'success': False, 'error': 'Login required - cookies expired'}
                     
                     # Extract group name from page
                     group_name = 'unknown_group'
