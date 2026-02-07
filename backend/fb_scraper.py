@@ -153,10 +153,72 @@ def load_cookies() -> List[Dict]:
     try:
         with open(COOKIES_FILE, 'r') as f:
             cookies = json.load(f)
-        return cookies if isinstance(cookies, list) else []
+        
+        if isinstance(cookies, list) and len(cookies) > 0:
+            # Check cookie expiration and log warning if close to expiring
+            import time
+            current_time = time.time()
+            for cookie in cookies:
+                exp = cookie.get('expirationDate', 0)
+                if exp and exp > 0:
+                    days_until_expiry = (exp - current_time) / 86400
+                    if days_until_expiry < 7:
+                        logger.warning(f"⚠️ Cookie '{cookie.get('name')}' expires in {days_until_expiry:.1f} days!")
+                    elif days_until_expiry < 0:
+                        logger.error(f"❌ Cookie '{cookie.get('name')}' has EXPIRED!")
+            
+            return cookies
+        return []
     except Exception as e:
         logger.error(f"Error loading cookies: {e}")
         return []
+
+
+def check_cookie_expiration() -> Dict:
+    """Check cookie expiration status and return info"""
+    import time
+    current_time = time.time()
+    cookies = load_cookies()
+    
+    if not cookies:
+        return {'valid': False, 'message': 'No cookies configured'}
+    
+    expired = []
+    expiring_soon = []
+    valid = []
+    
+    for cookie in cookies:
+        name = cookie.get('name', 'unknown')
+        exp = cookie.get('expirationDate', 0)
+        
+        if exp and exp > 0:
+            days_until_expiry = (exp - current_time) / 86400
+            if days_until_expiry < 0:
+                expired.append({'name': name, 'days': days_until_expiry})
+            elif days_until_expiry < 7:
+                expiring_soon.append({'name': name, 'days': days_until_expiry})
+            else:
+                valid.append({'name': name, 'days': days_until_expiry})
+    
+    if expired:
+        return {
+            'valid': False,
+            'message': f'{len(expired)} cookies have expired. Please update your cookies.',
+            'expired': expired,
+            'expiring_soon': expiring_soon
+        }
+    elif expiring_soon:
+        return {
+            'valid': True,
+            'message': f'{len(expiring_soon)} cookies expiring soon',
+            'expiring_soon': expiring_soon
+        }
+    else:
+        return {
+            'valid': True,
+            'message': 'All cookies are valid',
+            'days_until_earliest_expiry': min([c['days'] for c in valid]) if valid else None
+        }
 
 
 def save_cookies(cookies: List[Dict]) -> bool:
