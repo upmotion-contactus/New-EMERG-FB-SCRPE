@@ -932,34 +932,28 @@ async def scrape_single_profile(page: Page, match: Dict) -> Dict:
             profile_url = f"https://www.facebook.com/profile.php?id={user_id}"
         
         await page.goto(profile_url, wait_until='domcontentloaded', timeout=PAGE_LOAD_TIMEOUT)
-        await asyncio.sleep(1.5)  # Wait for initial content
+        await asyncio.sleep(1.0)  # Reduced from 1.5s
         
-        # Scroll down to trigger lazy loading of contact info
-        await page.evaluate('window.scrollBy(0, 500)')
-        await asyncio.sleep(0.5)
+        # Quick scroll to trigger content loading
+        await page.evaluate('window.scrollBy(0, 300)')
+        await asyncio.sleep(0.3)
         
-        # Try to click "About" tab to load contact information
+        # Try to click "About" tab - quick attempt only
         try:
-            # Multiple selectors for About section
-            about_selectors = [
-                'a[href*="/about"]',
-                'a:has-text("About")',
-                'span:has-text("See About")',
-                'div[role="tab"]:has-text("About")',
-                '[data-pagelet="ProfileTabs"] a:has-text("About")'
-            ]
-            for selector in about_selectors:
-                about_btn = await page.query_selector(selector)
-                if about_btn:
-                    await about_btn.click()
-                    await asyncio.sleep(1.0)
-                    break
+            clicked = await page.evaluate('''
+                () => {
+                    const aboutLink = document.querySelector('a[href*="/about"]');
+                    if (aboutLink) {
+                        aboutLink.click();
+                        return true;
+                    }
+                    return false;
+                }
+            ''')
+            if clicked:
+                await asyncio.sleep(0.8)
         except:
             pass
-        
-        # Scroll again after clicking About
-        await page.evaluate('window.scrollBy(0, 300)')
-        await asyncio.sleep(0.5)
         
         # IMPROVED extraction with multiple phone patterns and better website detection
         extracted = await page.evaluate('''
