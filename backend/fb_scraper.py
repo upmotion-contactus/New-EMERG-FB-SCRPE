@@ -1038,21 +1038,15 @@ async def stage2_deep_scrape(
     industry: str = 'unknown',
     group_name: str = 'unknown'
 ) -> List[Dict]:
-    """Stage 2: Deep scrape profiles - WITH CHECKPOINT SAVING & SPEED OPTIMIZATION"""
+    """Stage 2: Deep scrape profiles - single final CSV only (no checkpoint files)"""
     
     results = []
     total = len(matches)
     errors_in_row = 0
     max_errors = 5
-    checkpoint_interval = 50  # Save every 50 profiles (changed from 25)
-    last_checkpoint = 0
     
     if start_time is None:
         start_time = datetime.now(timezone.utc)
-    
-    # Generate checkpoint filename
-    checkpoint_suffix = secrets.token_hex(4)
-    checkpoint_base = f"{industry}_{slugify(group_name)}_{checkpoint_suffix}"
     
     for idx, match in enumerate(matches):
         # Check timeout every 50 profiles
@@ -1080,27 +1074,6 @@ async def stage2_deep_scrape(
                 'deep_scrape_progress': f'{idx+1}/{total}',
                 'stage': 'deep_scraping'
             })
-        
-        # CHECKPOINT SAVE - Save progress every 50 profiles
-        if len(results) > 0 and len(results) - last_checkpoint >= checkpoint_interval:
-            try:
-                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-                checkpoint_file = f"{checkpoint_base}_checkpoint_{timestamp}.csv"
-                checkpoint_path = os.path.join(SCRAPE_DIR, checkpoint_file)
-                save_to_csv(results.copy(), checkpoint_path)
-                last_checkpoint = len(results)
-                logger.info(f"Checkpoint saved: {len(results)} profiles to {checkpoint_file}")
-                
-                # Update status with checkpoint info
-                status_callback({
-                    'status': 'running',
-                    'message': f'Checkpoint saved ({len(results)} leads). Continuing...',
-                    'job_id': job_id,
-                    'checkpoint_file': checkpoint_file,
-                    'checkpoint_count': len(results)
-                })
-            except Exception as e:
-                logger.warning(f"Checkpoint save failed: {e}")
         
         try:
             result = await scrape_single_profile(page, match)
@@ -1134,17 +1107,6 @@ async def stage2_deep_scrape(
         
         # Minimal delay
         await asyncio.sleep(0.3)
-    
-    # Delete checkpoint files if we completed successfully (final save will happen in main function)
-    if len(results) == total:
-        try:
-            import glob
-            checkpoint_pattern = os.path.join(SCRAPE_DIR, f"{checkpoint_base}_checkpoint_*.csv")
-            for f in glob.glob(checkpoint_pattern):
-                os.remove(f)
-                logger.info(f"Removed checkpoint: {f}")
-        except:
-            pass
     
     return results
 
