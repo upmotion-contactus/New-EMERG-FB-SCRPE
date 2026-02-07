@@ -35,6 +35,7 @@ export default function ScraperDashboard() {
   const [selectedIndustry, setSelectedIndustry] = useState('electrical');
   const [urls, setUrls] = useState('');
   const [cookiesConfigured, setCookiesConfigured] = useState(false);
+  const [cookieExpiration, setCookieExpiration] = useState(null);
   const [showCookieSettings, setShowCookieSettings] = useState(false);
   const [cookieInput, setCookieInput] = useState('');
   const [savingCookies, setSavingCookies] = useState(false);
