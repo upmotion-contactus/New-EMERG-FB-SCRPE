@@ -1332,8 +1332,19 @@ async def detect_industry_endpoint(request: DetectIndustryRequest):
 
 @api_router.get("/scraper/cookies/status")
 async def get_cookies_status():
-    """Check if Facebook cookies are configured"""
-    return {'configured': cookies_exist()}
+    """Check if Facebook cookies are configured and their expiration status"""
+    from fb_scraper import check_cookie_expiration
+    
+    configured = cookies_exist()
+    if not configured:
+        return {'configured': False, 'message': 'No cookies configured'}
+    
+    # Check expiration
+    expiration_info = check_cookie_expiration()
+    return {
+        'configured': True,
+        **expiration_info
+    }
 
 
 @api_router.get("/scraper/browser/status")
