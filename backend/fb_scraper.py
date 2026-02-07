@@ -652,8 +652,10 @@ async def stage1_collect_links(
                 () => {
                     const results = [];
                     const seen = new Set();
+                    
+                    // Method 1: Look for listitem with user links
                     document.querySelectorAll('[role="listitem"]').forEach(item => {
-                        const profileLinks = item.querySelectorAll('a[href*="/user/"]');
+                        const profileLinks = item.querySelectorAll('a[href*="/user/"], a[href*="profile.php"]');
                         if (profileLinks.length > 0) {
                             const href = profileLinks[0].href;
                             if (seen.has(href)) return;
@@ -678,6 +680,63 @@ async def stage1_collect_links(
                             }
                         }
                     });
+                    
+                    // Method 2: Direct search for profile links if Method 1 found few results
+                    if (results.length < 10) {
+                        document.querySelectorAll('a[href*="/user/"], a[href*="profile.php?id="]').forEach(link => {
+                            const href = link.href;
+                            if (!href || seen.has(href)) return;
+                            
+                            // Skip if not a profile link
+                            if (!href.includes('/user/') && !href.includes('profile.php')) return;
+                            
+                            const name = link.innerText?.trim();
+                            if (!name || name.length < 2) return;
+                            
+                            // Skip common non-name texts
+                            if (['See more', 'View profile', 'Message', 'Add friend', 'Like', 'Comment'].includes(name)) return;
+                            
+                            seen.add(href);
+                            
+                            // Get parent context
+                            let context = '';
+                            let parent = link.parentElement;
+                            for (let i = 0; i < 5 && parent; i++) {
+                                if (parent.innerText && parent.innerText.length > context.length) {
+                                    context = parent.innerText.substring(0, 300);
+                                }
+                                parent = parent.parentElement;
+                            }
+                            
+                            results.push({
+                                href: href,
+                                name: name,
+                                context: context
+                            });
+                        });
+                    }
+                    
+                    // Method 3: Look for member cards by common class patterns
+                    if (results.length < 10) {
+                        document.querySelectorAll('div[data-visualcompletion="ignore-dynamic"]').forEach(item => {
+                            const links = item.querySelectorAll('a[href*="/user/"], a[href*="profile.php"]');
+                            links.forEach(link => {
+                                const href = link.href;
+                                if (!href || seen.has(href)) return;
+                                
+                                const name = link.innerText?.trim();
+                                if (!name || name.length < 2) return;
+                                
+                                seen.add(href);
+                                results.push({
+                                    href: href,
+                                    name: name,
+                                    context: item.innerText?.substring(0, 300) || ''
+                                });
+                            });
+                        });
+                    }
+                    
                     return results;
                 }
             ''')
