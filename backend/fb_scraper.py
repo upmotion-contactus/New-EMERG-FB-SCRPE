@@ -420,32 +420,65 @@ async def scrape_facebook_group(
                         })
                         return {'success': False, 'error': 'Facebook login required'}
                     
-                    # Try to click on "People" or "Members" tab to get to members list
+                    # Click on "People" tab to get to members list
+                    logger.info("Looking for People/Members tab...")
                     members_clicked = False
-                    member_selectors = [
-                        'a[href*="/members"]',
-                        'a:has-text("People")',
-                        'a:has-text("Members")',
-                        'span:has-text("People")',
-                        'div[role="tab"]:has-text("People")',
-                        'div[role="tab"]:has-text("Members")',
-                    ]
                     
-                    for selector in member_selectors:
-                        try:
-                            member_tab = await page.query_selector(selector)
-                            if member_tab:
-                                await member_tab.click()
-                                await asyncio.sleep(3)
-                                members_clicked = True
-                                logger.info(f"Clicked members tab using selector: {selector}")
-                                break
-                        except:
-                            continue
+                    # Try clicking with JavaScript evaluation for better reliability
+                    try:
+                        clicked = await page.evaluate('''
+                            () => {
+                                // Look for "People" text in links/spans
+                                const elements = document.querySelectorAll('a, span, div[role="tab"]');
+                                for (const el of elements) {
+                                    const text = el.innerText?.trim();
+                                    if (text === 'People' || text === 'Members') {
+                                        el.click();
+                                        return true;
+                                    }
+                                }
+                                // Also try href-based matching
+                                const memberLinks = document.querySelectorAll('a[href*="/members"], a[href*="/people"]');
+                                if (memberLinks.length > 0) {
+                                    memberLinks[0].click();
+                                    return true;
+                                }
+                                return false;
+                            }
+                        ''')
+                        if clicked:
+                            members_clicked = True
+                            logger.info("Clicked People/Members tab via JS")
+                            await asyncio.sleep(3)
+                    except Exception as e:
+                        logger.warning(f"JS click failed: {e}")
                     
-                    # If clicking didn't work, try direct URL navigation
+                    # If JS click didn't work, try Playwright click
                     if not members_clicked:
-                        members_url = group_url + '/members'
+                        member_selectors = [
+                            'a:has-text("People")',
+                            'span:has-text("People")',
+                            'a:has-text("Members")',
+                            'a[href*="/members"]',
+                            'div[role="tab"]:has-text("People")',
+                        ]
+                        
+                        for selector in member_selectors:
+                            try:
+                                member_tab = await page.query_selector(selector)
+                                if member_tab:
+                                    await member_tab.click(force=True)
+                                    await asyncio.sleep(3)
+                                    members_clicked = True
+                                    logger.info(f"Clicked members tab using selector: {selector}")
+                                    break
+                            except Exception as e:
+                                logger.debug(f"Selector {selector} failed: {e}")
+                                continue
+                    
+                    # If still no luck, try direct URL navigation to /people
+                    if not members_clicked:
+                        members_url = group_url + '/people'
                         logger.info(f"Trying direct navigation to: {members_url}")
                         await page.goto(members_url, wait_until='domcontentloaded', timeout=60000)
                         await asyncio.sleep(3)
