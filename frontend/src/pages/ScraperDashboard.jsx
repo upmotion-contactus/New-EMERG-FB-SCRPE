@@ -130,8 +130,23 @@ export default function ScraperDashboard() {
       if (res.ok) {
         toast.success('Cookies saved!');
         setCookiesConfigured(true);
+        setCookieExpiration(null);
         setShowCookieSettings(false);
         setCookieInput('');
+        // Refresh cookie status to get expiration info
+        fetch(`${API}/scraper/cookies/status`)
+          .then(r => r.json())
+          .then(data => {
+            if (data.configured) {
+              setCookieExpiration({
+                valid: data.valid,
+                message: data.message,
+                expiringSoon: data.expiring_soon || [],
+                expired: data.expired || []
+              });
+            }
+          })
+          .catch(() => {});
       } else {
         toast.error('Failed to save cookies');
       }
